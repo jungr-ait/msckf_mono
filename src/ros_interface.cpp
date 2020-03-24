@@ -2,16 +2,16 @@
 
 namespace msckf_mono
 {
-  RosInterface::RosInterface(ros::NodeHandle nh) :
-    nh_(nh),
+  RosInterface::RosInterface() :
+    nh_("~"),
     it_(nh_),
     imu_calibrated_(false),
     prev_imu_time_(0.0)
   {
-    load_parameters();
+    load_ROS_parameters();
     setup_track_handler();
 
-    odom_pub_ = nh.advertise<nav_msgs::Odometry>("odom", 100);
+    odom_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 100);
     track_image_pub_ = it_.advertise("track_overlay_image", 1);
 
     imu_sub_ = nh_.subscribe("imu", 200, &RosInterface::imuCallback, this);
@@ -218,7 +218,7 @@ namespace msckf_mono
     msckf_.initialize(camera_, noise_params_, msckf_params_, init_imu_state_);
   }
 
-  void RosInterface::load_parameters()
+  void RosInterface::load_ROS_parameters()
   {
     std::string kalibr_camera;
     nh_.getParam("kalibr_camera_name", kalibr_camera);
@@ -269,7 +269,7 @@ namespace msckf_mono
     camera_.c_u = intrinsics[2];
     camera_.c_v = intrinsics[3];
 
-    camera_.q_CI = Quaternion<float>(R_cam_imu_).inverse(); // TODO please check it 
+    camera_.q_CI = Quaternion<float>(R_cam_imu_); // TODO please check it
     camera_.p_C_I = p_cam_imu_;
 
     // Feature tracking parameteres
@@ -331,17 +331,156 @@ namespace msckf_mono
     }
     nh_.param<double>("stand_still_time", stand_still_time_, 8.0);
 
-    ROS_INFO_STREAM("Loaded " << kalibr_camera);
-    ROS_INFO_STREAM("-Intrinsics " << intrinsics[0] << ", "
-                                   << intrinsics[1] << ", "
-                                   << intrinsics[2] << ", "
-                                   << intrinsics[3] );
-    ROS_INFO_STREAM("-Distortion " << distortion_coeffs[0] << ", "
-                                   << distortion_coeffs[1] << ", "
-                                   << distortion_coeffs[2] << ", "
-                                   << distortion_coeffs[3] );
-    const auto q_CI = camera_.q_CI;
-    ROS_INFO_STREAM("-q_CI \n" << q_CI.x() << "," << q_CI.y() << "," << q_CI.z() << "," << q_CI.w());
+    dump_info();
+  }
+
+  bool RosInterface::load_YAML_parameters(const std::string &filename)
+  {
+    std::cout << "Load basic OCV Params from  " << filename << std::endl;
+    cv::FileStorage fs(filename, cv::FileStorage::READ);
+    if(!fs.isOpened())
+    {
+      std::cout << "Could not load " << filename << std::endl;
+      return false;
+    }
+  }
+
+  void RosInterface::set_camera_intrinsics(const float fx, const float fy, const float cx, const float cy)
+  {
+    K_ = cv::Mat::eye(3,3,CV_32F);
+    K_.at<float>(0,0) = fx;
+    K_.at<float>(1,1) = fy;
+    K_.at<float>(0,2) = cx;
+    K_.at<float>(1,2) = cy;
+
+    // setup camera parameters
+    camera_.f_u = fx;
+    camera_.f_v = fy;
+    camera_.c_u = cx;
+    camera_.c_v = cy;
+  }
+
+  void RosInterface::set_distortion_coef(const float k1, const float k2, const float p1, const float p2)
+  {
+    dist_coeffs_ = cv::Mat::zeros(4,1,CV_32F);
+    dist_coeffs_.at<float>(0) = k1;
+    dist_coeffs_.at<float>(1) = k2;
+    dist_coeffs_.at<float>(2) = p1;
+    dist_coeffs_.at<float>(3) = p2;
+  }
+
+  void RosInterface::set_cam_imu_extrinsics(const Matrix3f &R_C_I, const Vector3f &p_C_I)
+  {
+    R_cam_imu_ = R_C_I;
+    p_cam_imu_ = p_C_I;
+
+    R_imu_cam_ = R_cam_imu_.transpose();
+    p_imu_cam_ = R_imu_cam_ * (-1. * p_cam_imu_);
+
+    camera_.q_CI = Quaternion<float>(R_C_I);
+    camera_.p_C_I = p_C_I;
+  }
+
+  void RosInterface::set_imu_noise_params(const float w_var, const float dbg_var, const float a_var, const float dba_var)
+  {
+    Eigen::Matrix<float,12,1> Q_imu_vars;
+    Q_imu_vars << w_var, 	w_var, 	w_var,
+                  dbg_var,dbg_var,dbg_var,
+                  a_var,	a_var,	a_var,
+                  dba_var,dba_var,dba_var;
+
+    noise_params_.Q_imu = Q_imu_vars.asDiagonal();
+
+  }
+
+  void RosInterface::set_P(const float q_var_init, const float bg_var_init, const float v_var_init, const float ba_var_init, const float p_var_init)
+  {
+    Eigen::Matrix<float,15,1> IMUCovar_vars;
+    IMUCovar_vars << q_var_init, q_var_init, q_var_init,
+                     bg_var_init,bg_var_init,bg_var_init,
+                     v_var_init, v_var_init, v_var_init,
+                     ba_var_init,ba_var_init,ba_var_init,
+                     p_var_init, p_var_init, p_var_init;
+
+    noise_params_.initial_imu_covar = IMUCovar_vars.asDiagonal();
+  }
+
+  void RosInterface::set_CAMERA_params(const float fx, const float fy, const float cx, const float cy, const float k1, const float k2, const float p1, const float p2, const std::string &distortion_model, const Matrix3f &R_C_I, const Vector3f &p_C_I)
+  {
+    this->set_camera_intrinsics(fx, fy, cx, cy);
+    this->set_distortion_coef(k1, k2, p1, p2);
+    distortion_model_ = distortion_model;
+    this->set_cam_imu_extrinsics(R_C_I, p_C_I);
+  }
+
+  void RosInterface::set_NOISE_params(const float fx,
+                                      const float fy,
+                                      const float feature_covariance,
+                                      const float w_var,
+                                      const float dbg_var,
+                                      const float a_var,
+                                      const float dba_var,
+                                      const float q_var_init,
+                                      const float bg_var_init,
+                                      const float v_var_init,
+                                      const float ba_var_init,
+                                      const float p_var_init)
+  {
+    noise_params_.u_var_prime = pow(feature_covariance/fx,2);
+    noise_params_.v_var_prime = pow(feature_covariance/fy,2);
+    this->set_imu_noise_params(w_var, dbg_var, a_var, dba_var);
+    this->set_P(q_var_init, bg_var_init, v_var_init, ba_var_init, p_var_init);
+  }
+
+  void RosInterface::set_MSCKF_params(const float fx,
+                                      const float max_gn_cost_norm,
+                                      const float translation_threshold,
+                                      const float min_rcond,
+                                      const float keyframe_transl_dist,
+                                      const float keyframe_rot_dist,
+                                      const float max_track_length,
+                                      const float min_track_length,
+                                      const float max_cam_states)
+  {
+
+
+
+    msckf_params_.max_gn_cost_norm = max_gn_cost_norm;
+    msckf_params_.max_gn_cost_norm = pow(msckf_params_.max_gn_cost_norm/fx, 2);
+    msckf_params_.translation_threshold = translation_threshold;
+    msckf_params_.min_rcond = min_rcond;
+    msckf_params_.redundancy_angle_thresh = keyframe_transl_dist;
+    msckf_params_.redundancy_distance_thresh = keyframe_rot_dist;
+    msckf_params_.max_track_length = max_track_length;
+    msckf_params_.min_track_length = min_track_length;
+    msckf_params_.max_cam_states = max_cam_states;
+  }
+
+  void RosInterface::set_TRACKER_params(const float n_grid_rows, const float n_grid_cols, const float ransac_threshold)
+  {
+    n_grid_rows_ = n_grid_rows;
+    n_grid_cols_ = n_grid_cols;
+    ransac_threshold_ = ransac_threshold;
+  }
+
+  void RosInterface::set_INITIALIZATON_params(const float stand_still_time, const RosInterface::CalibrationMethod method)
+  {
+    imu_calibration_method_ = method;
+    stand_still_time_ = stand_still_time;
+  }
+
+  void RosInterface::dump_info()
+  {
+    ROS_INFO_STREAM("-Intrinsics " << camera_.f_u << ", "
+                                   << camera_.f_v << ", "
+                                   << camera_.c_u << ", "
+                                   << camera_.c_v );
+    ROS_INFO_STREAM("-Distortion " << dist_coeffs_.at<float>(0) << ", "
+                                   << dist_coeffs_.at<float>(1) << ", "
+                                   << dist_coeffs_.at<float>(2) << ", "
+                                   << dist_coeffs_.at<float>(3) );
+
+    ROS_INFO_STREAM("-q_CI \n" << camera_.q_CI.x() << "," << camera_.q_CI.y() << "," << camera_.q_CI.z() << "," << camera_.q_CI.w() << " (xyzw)");
     ROS_INFO_STREAM("-p_C_I \n" << camera_.p_C_I.transpose());
   }
 
