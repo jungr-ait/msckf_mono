@@ -10,6 +10,7 @@
 *  All rights reserved. See the LICENSE file for details.
 ******************************************************************************/
 #include <iostream>
+#include <iomanip>      // std::setprecision
 #include <fstream>
 #include <string>
 #include <vector>
@@ -47,10 +48,10 @@ int main(int argc, char **argv)
   std::string topic_gt_pose = "/gt_pose";
   app.add_option("--topic_gt_pose", topic_gt_pose, "topic name");
 
-  int start = 0;
-  app.add_option("--start", start, "start time");
-  int stop = 0;
-  app.add_option("--stop", stop, "stop time");
+  int start_sec = 0;
+  app.add_option("--start_sec", start_sec, "start time");
+  int stop_sec = 0;
+  app.add_option("--stop_sec", stop_sec, "stop time");
 
   int num_loops = 1;
   app.add_option("--num_loops", num_loops, "number of loops processed");
@@ -76,8 +77,6 @@ int main(int argc, char **argv)
 
     rosbag::TopicQuery query(topics);
     rosbag::View       view(bag, query);
-    float processing_stop_at  = stop * view.size();
-    float processing_start_at = start * view.size();
 
 
 
@@ -94,9 +93,24 @@ int main(int argc, char **argv)
     int  num_run       = 0;
 
 
-    msckf_mono::RosInterface ros_node;
-    RTV_EXPECT_TRUE(ros_node.init_YAML(config_filename), "could not load parameters!");
+    msckf_mono::RosInterface node;
+    RTV_EXPECT_TRUE(node.init_YAML(config_filename), "could not load parameters!");
     std::cout << "node configured...." << std::endl;
+
+    ros::Time t_start = view.getBeginTime();
+    double t_start_sec = t_start.toSec() + start_sec;
+    ros::Time t_stop = view.getEndTime();
+    double t_stop_sec = t_stop.toSec();
+    if (stop_sec > 0.0)
+    {
+      t_stop_sec = t_start.toSec() + stop_sec;
+    }
+
+    std::cout << "* Rosbag start time: " << t_start.sec << "." << t_start.nsec << " [sec]" << "\n";
+    std::cout << "* Rosbag stop time: " <<t_stop.sec << "." << t_stop.nsec << " [sec]" << "\n";
+    std::cout << "* Playback start offset: " << start_sec << "\n" << std::endl;
+
+
     do
     {
       size_t         seq_len       = view.size();
@@ -106,8 +120,14 @@ int main(int argc, char **argv)
       bool           shutdown      = false;
 
 
-      for(auto const& m : view)
+
+
+
+
+      for(rosbag::MessageInstance const& m : view)
       {
+        ros::Time t_current = m.getTime();
+        double t_current_sec = t_current.toSec();
         sensor_msgs::ImageConstPtr               image  = m.instantiate<sensor_msgs::Image>();
         sensor_msgs::ImuConstPtr                 imu    = m.instantiate<sensor_msgs::Imu>();
         geometry_msgs::PointStamped::ConstPtr   gt_position = m.instantiate<geometry_msgs::PointStamped>();
@@ -116,12 +136,13 @@ int main(int argc, char **argv)
         if(processed_cnt >= (int) ((percent + 1) * slice_len))
         {
           percent++;
-          std::cout << "bag processed [" << percent << "%]" << std::endl;
+          std::cout << "* processed [" << percent << "%]"
+                    << ", bag time: " << t_current.sec << "." << t_current.nsec << " [sec]"
+                    << ", relative: " << std::setprecision(5) << t_current_sec - t_start_sec << " [sec]" << std::endl;
         }
 
-        //if((processing_stop_at == 0 || processed_cnt < processing_stop_at) && processed_cnt > processing_start_at)
+         if(t_current_sec  > t_start_sec && t_current_sec < t_stop_sec)
         {
-
 
           if(!ros::ok() || shutdown)
           {
@@ -130,15 +151,15 @@ int main(int argc, char **argv)
           }
           if(image != nullptr &&  (m.getTopic() == topic_camera) )
           {
-            std::cout << "image: " << std::endl;
-            ros_node.imageCallback(image);
+            //std::cout << "image: " << std::endl;
+            node.imageCallback(image);
             //node.imgMonoCallback(image);
           }
 
           if(imu != nullptr &&  (m.getTopic() == topic_imu))
           {
-            std::cout << "imu" << std::endl;
-            ros_node.imuCallback(imu);
+            //std::cout << "imu" << std::endl;
+            node.imuCallback(imu);
             //node.imuCallback(imu);
           }
 
@@ -162,6 +183,7 @@ int main(int argc, char **argv)
     }
     while(num_run < num_loops);
 
+    bag.close();
 
 
   }

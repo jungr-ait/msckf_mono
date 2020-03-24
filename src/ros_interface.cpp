@@ -1,4 +1,5 @@
 #include <msckf_mono/ros_interface.h>
+#include <iomanip>      // std::setprecision
 #include <opencv/cxeigen.hpp>
 #include <utilities/IO.hpp>
 #include <utilities/RTVerification.hpp>
@@ -29,6 +30,7 @@ namespace msckf_mono
     setup_track_handler();
 
     init_topics();
+    dump_info();
     return res;
   }
 
@@ -38,6 +40,10 @@ namespace msckf_mono
     if(prev_imu_time_ == 0.0){
       prev_imu_time_ = cur_imu_time;
       done_stand_still_time_ = cur_imu_time + stand_still_time_;
+      ros::Time time_over(done_stand_still_time_);
+
+      std::cout << "* Stand still is expected to be over at: "
+                << " " << time_over.sec << "." << time_over.nsec << " [sec]" << std::endl;
       return;
     }
 
@@ -84,6 +90,7 @@ namespace msckf_mono
         imu_queue_.clear();
 
         setup_msckf();
+        std::cout << "IMU initalized and MSCKF setup..." << std::endl;
       }
 
       return;
@@ -523,7 +530,7 @@ namespace msckf_mono
     R_imu_cam_ = R_cam_imu_.transpose();
     p_imu_cam_ = R_imu_cam_ * (-1. * p_cam_imu_);
 
-    camera_.q_CI = Quaternion<float>(R_C_I);
+    camera_.q_CI = Quaternion<float>(R_C_I).inverse(); // should not be, but I think there is a colloum, row major issue!
     camera_.p_C_I = p_C_I;
   }
 
@@ -628,6 +635,7 @@ namespace msckf_mono
 
     ROS_INFO_STREAM("-q_CI \n" << camera_.q_CI.x() << "," << camera_.q_CI.y() << "," << camera_.q_CI.z() << "," << camera_.q_CI.w() << " (xyzw)");
     ROS_INFO_STREAM("-p_C_I \n" << camera_.p_C_I.transpose());
+    ROS_INFO_STREAM(" stand still duration: " << stand_still_time_);
   }
 
 }
