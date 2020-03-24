@@ -86,11 +86,11 @@ include_directories(
   )
 
 LIST(APPEND LINK_LIBS
+  vision_core
+  utilities
   ${OpenCV_LIBS}
   ${catkin_LIBRARIES}
   ${fast_LIBRARIES}
-  utilities
-  vision_core
   )
 
 LIST(APPEND MSCKF_SRCS

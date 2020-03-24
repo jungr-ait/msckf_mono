@@ -6,9 +6,8 @@ if (NOT ${OpenCV_VERSION})
   set(OpenCV_VERSION 3.0)
 endif ()
 find_package(OpenCV ${OpenCV_VERSION} REQUIRED core imgproc calib3d highgui)
-
 find_package(Eigen)
-
+find_package(Sophus)
 #
 # Library name and options
 #
@@ -35,24 +34,14 @@ set(local_include_files
     )
 
 set(headers
-    ${include_path}/ICamera.hpp
-    ${include_path}/CameraPinhole.hpp
-    ${include_path}/StereoCameraPinhole.hpp
     ${include_path}/types.hpp
     ${include_path}/utils.hpp
     ${include_path}/config_helper.hpp
     ${include_path}/math.hpp
-    ${include_path}/algorithm.hpp
-    ${include_path}/Header.hpp
-    ${include_path}/FrameBase.hpp
     ${local_include_files}
     )
 
-set(sources
-    ${source_path}/CameraPinhole.cpp
-    ${source_path}/StereoCameraPinhole.cpp
-    ${source_path}/FrameBase.cpp
-    )
+set(sources )
 
 # Group source files
 set(header_group "Header Files (API)")
@@ -71,11 +60,9 @@ include_directories(
 )
 
 # Build library
-add_library(${target} STATIC
-    ${headers}
-    ${sources}
+add_library(${target} INTERFACE
     )
-
+target_sources(${target} INTERFACE ${headers})
 
 # Create namespaced alias
 add_library(${META_PROJECT_NAME}::${target} ALIAS ${target})
@@ -105,23 +92,17 @@ add_library(${META_PROJECT_NAME}::${target} ALIAS ${target})
 
 
 target_include_directories(${target}
-    PRIVATE
+    INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/include_local
-    PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${DEFAULT_INCLUDE_DIRECTORIES}
-    INTERFACE
     )
 
 #
 # Project options
 #
 
-set_target_properties(${target}
-    PROPERTIES
-    ${DEFAULT_PROJECT_OPTIONS}
-    FOLDER "${IDE_FOLDER}"
-    )
+
 
 
 #
@@ -132,80 +113,11 @@ target_link_libraries(${target}
     PRIVATE
 
     PUBLIC
+
+    INTERFACE
     ${DEFAULT_LIBRARIES}
     Sophus
+    utilities
     ${OpenCV_LIBRARIES}
-
-    INTERFACE
     )
 
-#
-# Compile definitions
-#
-
-target_compile_definitions(${target}
-    PRIVATE
-
-    PUBLIC
-    ${DEFAULT_COMPILE_DEFINITIONS}
-
-    INTERFACE
-    )
-
-#
-# Compile options
-#
-
-target_compile_options(${target}
-    PRIVATE
-
-    PUBLIC
-    ${DEFAULT_COMPILE_OPTIONS}
-
-    INTERFACE
-    )
-
-##
-## Linker options
-##
-#
-#target_link_libraries(${target}
-#    PRIVATE
-#    ${OpenCV_LIBS}
-#
-#    PUBLIC
-#    ${DEFAULT_LINKER_OPTIONS}
-#
-#    INTERFACE
-#)
-
-##
-## Deployment
-##
-#
-## Library
-#install(TARGETS ${target}
-#    EXPORT  "${target}-export"            COMPONENT dev
-#    RUNTIME DESTINATION ${INSTALL_BIN}    COMPONENT runtime
-#    LIBRARY DESTINATION ${INSTALL_SHARED} COMPONENT runtime
-#    ARCHIVE DESTINATION ${INSTALL_LIB}    COMPONENT dev
-#)
-#
-## Header files
-#install(DIRECTORY
-#    ${CMAKE_CURRENT_SOURCE_DIR}/include/${target} DESTINATION ${INSTALL_INCLUDE}
-#    COMPONENT dev
-#)
-#
-## Generated header files
-#install(DIRECTORY
-#    ${CMAKE_CURRENT_BINARY_DIR}/include/${target} DESTINATION ${INSTALL_INCLUDE}
-#    COMPONENT dev
-#)
-#
-## CMake config
-#install(EXPORT ${target}-export
-#    NAMESPACE   ${META_PROJECT_NAME}::
-#    DESTINATION ${INSTALL_CMAKE}/${target}
-#    COMPONENT   dev
-#)

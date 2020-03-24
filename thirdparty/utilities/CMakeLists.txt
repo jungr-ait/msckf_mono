@@ -30,23 +30,15 @@ set(local_include_files
 set(headers
     ${include_path}/Rate.hpp
     ${include_path}/IO.hpp
-    ${include_path}/ThreadPool.hpp
-    ${include_path}/CyclicThread.hpp
     ${include_path}/Profiler.hpp
     ${include_path}/RTVerification.hpp
-    ${include_path}/AscendingIdx.hpp
-    ${include_path}/IndexMap.hpp
-    ${include_path}/CircularBuffer.hpp
-    ${include_path}/QueueTS.hpp
-    ${include_path}/SSE2NEON.hpp
     ${local_include_files}
     )
 
 set(sources
     ${source_path}/IO.cpp
-    ${source_path}/CyclicThread.cpp
     ${source_path}/Rate.cpp
-    ${source_path}/ThreadPool.cpp
+
     )
 
 # Group source files

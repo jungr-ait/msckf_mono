@@ -24,6 +24,10 @@ namespace msckf_mono
 
       RosInterface();
 
+      void init_ROS();
+
+      bool init_YAML(std::string const& filename);
+
       void imuCallback(const sensor_msgs::ImuConstPtr& imu);
 
       void imageCallback(const sensor_msgs::ImageConstPtr& msg);
@@ -32,12 +36,16 @@ namespace msckf_mono
 
       void publish_extra(const ros::Time& publish_time);
 
+
+
+
+  private:
+      void init_topics();
+
       void load_ROS_parameters();
 
       bool load_YAML_parameters(std::string const& filename);
 
-
-  private:
       enum CalibrationMethod { TimedStandStill };
 
       //(cx, cy) is a principal point that is usually at the image center

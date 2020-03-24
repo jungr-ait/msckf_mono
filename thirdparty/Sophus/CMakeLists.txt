@@ -38,7 +38,7 @@ SET( Sophus_LIBRARIES "" )
 SET( Sophus_INCLUDE_DIR ${PROJECT_SOURCE_DIR} )
 
 ################################################################################
-FIND_PACKAGE( Eigen REQUIRED )
+FIND_PACKAGE(Eigen3 REQUIRED )
 #LIST( APPEND Sophus_INCLUDE_DIR)
 
 

@@ -73,7 +73,6 @@ namespace vision_core {
       }
       dst = static_cast<uint32_t>(val);
     }
-
   }
 }
 

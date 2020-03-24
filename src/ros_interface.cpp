@@ -1,4 +1,8 @@
 #include <msckf_mono/ros_interface.h>
+#include <opencv/cxeigen.hpp>
+#include <utilities/IO.hpp>
+#include <utilities/RTVerification.hpp>
+#include <vision_core/config_helper.hpp>
 
 namespace msckf_mono
 {
@@ -8,15 +12,24 @@ namespace msckf_mono
     imu_calibrated_(false),
     prev_imu_time_(0.0)
   {
+
+  }
+
+  void RosInterface::init_ROS()
+  {
     load_ROS_parameters();
     setup_track_handler();
 
-    odom_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 100);
-    track_image_pub_ = it_.advertise("track_overlay_image", 1);
+    init_topics();
+  }
 
-    imu_sub_ = nh_.subscribe("imu", 200, &RosInterface::imuCallback, this);
-    image_sub_ = it_.subscribe("image_mono", 20,
-                               &RosInterface::imageCallback, this);
+  bool RosInterface::init_YAML(const std::string &filename)
+  {
+    bool res = load_YAML_parameters(filename);
+    setup_track_handler();
+
+    init_topics();
+    return res;
   }
 
   void RosInterface::imuCallback(const sensor_msgs::ImuConstPtr& imu)
@@ -152,6 +165,16 @@ namespace msckf_mono
       out_img.image = track_handler_->get_track_image();
       track_image_pub_.publish(out_img.toImageMsg());
     }
+  }
+
+  void RosInterface::init_topics()
+  {
+    odom_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 100);
+    track_image_pub_ = it_.advertise("track_overlay_image", 1);
+
+    imu_sub_ = nh_.subscribe("imu", 200, &RosInterface::imuCallback, this);
+    image_sub_ = it_.subscribe("image_mono", 20,
+                               &RosInterface::imageCallback, this);
   }
 
   bool RosInterface::can_initialize_imu()
@@ -336,13 +359,136 @@ namespace msckf_mono
 
   bool RosInterface::load_YAML_parameters(const std::string &filename)
   {
-    std::cout << "Load basic OCV Params from  " << filename << std::endl;
+    std::cout << "RosInterface.load_YAML_parameters() " << filename << std::endl;
     cv::FileStorage fs(filename, cv::FileStorage::READ);
+
     if(!fs.isOpened())
     {
       std::cout << "Could not load " << filename << std::endl;
       return false;
     }
+
+    float w_var, dbg_var, a_var, dba_var, q_var_init, bg_var_init, v_var_init, ba_var_init, p_var_init;
+    float feature_cov, n_grid_rows, n_grid_cols;
+    float max_gn_cost_norm, translation_threshold, min_rcond, keyframe_transl_dist,
+        keyframe_rot_dist, min_track_length, max_track_length, max_cam_states, ransac_threshold;
+    float fx, fy, cx,cy, k1, k2, p1,p2;
+    std::string distortion_model = "radtan";
+    float stand_still_time;
+    Matrix3f R_C_I;
+    Vector3f p_C_I;
+    cv::FileNode fn_;
+    RTV_EXPECT_TRUE_(vision_core::config_helper::loadNode(fn_, fs, "NOISE"));
+    {
+            // noise
+      RTV_EXPECT_TRUE_(fn_["w_var"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["dbg_var"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["a_var"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["dba_var"].isNamed());
+
+      vision_core::config_helper::get_if(fn_, "w_var", w_var);
+      vision_core::config_helper::get_if(fn_, "dbg_var", dbg_var);
+      vision_core::config_helper::get_if(fn_, "a_var", a_var);
+      vision_core::config_helper::get_if(fn_, "dba_var", dba_var);
+      // init
+      RTV_EXPECT_TRUE_(fn_["q_var_init"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["bg_var_init"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["v_var_init"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["ba_var_init"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["p_var_init"].isNamed());
+      vision_core::config_helper::get_if(fn_, "q_var_init", q_var_init);
+      vision_core::config_helper::get_if(fn_, "bg_var_init", bg_var_init);
+      vision_core::config_helper::get_if(fn_, "v_var_init", v_var_init);
+      vision_core::config_helper::get_if(fn_, "ba_var_init", ba_var_init);
+      vision_core::config_helper::get_if(fn_, "p_var_init", p_var_init);
+    }
+    RTV_EXPECT_TRUE_(vision_core::config_helper::loadNode(fn_, fs, "TRACKER"));
+    {
+
+      RTV_EXPECT_TRUE_(fn_["feature_cov"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["n_grid_rows"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["n_grid_cols"].isNamed());
+      vision_core::config_helper::get_if(fn_, "feature_cov", feature_cov);
+      vision_core::config_helper::get_if(fn_, "n_grid_rows", n_grid_rows);
+      vision_core::config_helper::get_if(fn_, "n_grid_cols", n_grid_cols);
+    }
+    RTV_EXPECT_TRUE_(vision_core::config_helper::loadNode(fn_, fs, "INIT"));
+    {
+      RTV_EXPECT_TRUE_(fn_["stand_still_time"].isNamed());
+      vision_core::config_helper::get_if(fn_, "stand_still_time", stand_still_time);
+    }
+    RTV_EXPECT_TRUE_(vision_core::config_helper::loadNode(fn_, fs, "MSCKF"));
+    {
+
+      RTV_EXPECT_TRUE_(fn_["max_gn_cost_norm"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["translation_threshold"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["min_rcond"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["keyframe_transl_dist"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["keyframe_rot_dist"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["min_track_length"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["max_track_length"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["max_cam_states"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["ransac_threshold"].isNamed());
+
+      vision_core::config_helper::get_if(fn_, "max_gn_cost_norm", max_gn_cost_norm);
+      vision_core::config_helper::get_if(fn_, "translation_threshold", translation_threshold);
+      vision_core::config_helper::get_if(fn_, "min_rcond", min_rcond);
+      vision_core::config_helper::get_if(fn_, "keyframe_transl_dist", keyframe_transl_dist);
+      vision_core::config_helper::get_if(fn_, "keyframe_rot_dist", keyframe_rot_dist);
+      vision_core::config_helper::get_if(fn_, "min_track_length", min_track_length);
+      vision_core::config_helper::get_if(fn_, "max_track_length", max_track_length);
+      vision_core::config_helper::get_if(fn_, "max_cam_states", max_cam_states);
+      vision_core::config_helper::get_if(fn_, "ransac_threshold", ransac_threshold);
+
+    }
+    RTV_EXPECT_TRUE_(vision_core::config_helper::loadNode(fn_, fs, "Camera"));
+    {
+      RTV_EXPECT_TRUE_(fn_.type() == cv::FileNode::MAP);
+      RTV_EXPECT_TRUE_(fn_.size() >= 2);
+
+      cv::Mat CM, DM;
+      RTV_EXPECT_TRUE_(fn_["CM"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["DM"].isNamed());
+      fn_["CM"] >> CM;
+      RTV_EXPECT_TRUE_(CM.rows == 4 || (CM.rows == 3 && CM.cols == 3));
+      if(CM.rows == 4)
+      {
+        fx = CM.at<double>(0);
+        fy = CM.at<double>(1);
+        cx = CM.at<double>(2);
+        cy = CM.at<double>(3);
+
+      }
+      else if(CM.rows == 3 && CM.cols == 3)
+      {
+        fx = CM.at<double>(0,0);
+        fy = CM.at<double>(1,1);
+        cx = CM.at<double>(0,2);
+        cy = CM.at<double>(1,2);
+      }
+      fn_["DM"] >> DM;
+      k1 = DM.at<double>(0);
+      k2 = DM.at<double>(1);
+      p1 = DM.at<double>(2);
+      p2 = DM.at<double>(3);
+    }
+    if(vision_core::config_helper::loadNode(fn_, fs, "Camera-IMU"))
+    {
+      cv::Mat R_CI, p_CI;
+      RTV_EXPECT_TRUE_(fn_["R_ci"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["p_ci"].isNamed());
+      fn_["R_ci"] >> R_CI;
+      fn_["p_ci"] >> p_CI;
+      cv::cv2eigen(R_CI, R_C_I);
+      cv::cv2eigen(p_CI, p_C_I);
+    }
+
+    set_CAMERA_params(fx, fy, cx,cy, k1, k2, p1, p2, distortion_model, R_C_I, p_C_I);
+    set_NOISE_params(fx, fy, feature_cov, w_var, dbg_var, a_var, dba_var, q_var_init, bg_var_init, v_var_init, ba_var_init, p_var_init);
+    set_MSCKF_params(fx, max_gn_cost_norm, translation_threshold, min_rcond, keyframe_transl_dist, keyframe_rot_dist, max_track_length, min_track_length, max_cam_states);
+    set_TRACKER_params(n_grid_rows, n_grid_cols, ransac_threshold);
+    set_INITIALIZATON_params(stand_still_time, CalibrationMethod::TimedStandStill);
+    return true;
   }
 
   void RosInterface::set_camera_intrinsics(const float fx, const float fy, const float cx, const float cy)

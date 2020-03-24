@@ -27,96 +27,6 @@
 #include <vision_core/config_helper.hpp>
 //using namespace boost::filesystem;
 
-
-bool load_parameters(std::string const& filename)
-{
-  std::cout << "Load camera intrinsic  " << filename << std::endl;
-  cv::FileStorage fs(filename, cv::FileStorage::READ);
-
-  if(!fs.isOpened())
-  {
-    std::cout << "Could not load " << filename << std::endl;
-    return false;
-  }
-  cv::FileNode fn_;
-  if(vision_core::config_helper::loadNode(fn_, fs, "NOISE"))
-  {
-    // noise
-    RTV_EXPECT_TRUE_(fn_["w_var"].isNamed());
-    RTV_EXPECT_TRUE_(fn_["dbg_var"].isNamed());
-    RTV_EXPECT_TRUE_(fn_["a_var"].isNamed());
-    RTV_EXPECT_TRUE_(fn_["dba_var"].isNamed());
-    // init
-    RTV_EXPECT_TRUE_(fn_["q_var_init"].isNamed());
-    RTV_EXPECT_TRUE_(fn_["bg_var_init"].isNamed());
-    RTV_EXPECT_TRUE_(fn_["v_var_init"].isNamed());
-    RTV_EXPECT_TRUE_(fn_["ba_var_init"].isNamed());
-    RTV_EXPECT_TRUE_(fn_["p_var_init"].isNamed());
-  }
-  if(vision_core::config_helper::loadNode(fn_, fs, "TRACKER"))
-  {
-
-  }
-  if(vision_core::config_helper::loadNode(fn_, fs, "MSCKF"))
-  {
-
-  }
-  if(vision_core::config_helper::loadNode(fn_, fs, "Camera"))
-  {
-    RTV_EXPECT_TRUE_(fn_.type() == cv::FileNode::MAP);
-    RTV_EXPECT_TRUE_(fn_.size() >= 2);
-
-    std::uint32_t camera_id = 0;
-    RTV_EXPECT_TRUE_(fn_["camera_id"].isNamed());
-    vision_core::config_helper::get_if_uint32(fn_, "camera_id", camera_id);
-
-    std::cout << "-- Loading parameters: " << (std::string) fn_["cameraName"] << ", "
-            << (std::string) fn_["deviceName"] << ", " << std::to_string(camera_id) << std::endl;
-
-    cv::Mat CM, DM;
-    RTV_EXPECT_TRUE_(fn_["CM"].isNamed());
-    RTV_EXPECT_TRUE_(fn_["DM"].isNamed());
-    fn_["CM"] >> CM;
-    fn_["DM"] >> DM;
-
-    RTV_EXPECT_TRUE_(CM.rows == 4 || (CM.rows == 3 && CM.cols == 3));
-    Eigen::Matrix3f k;
-
-    if(CM.rows == 4)
-    {
-      k << CM.at<double>(0), 0.0, CM.at<double>(2),
-      0.0, CM.at<double>(1), CM.at<double>(3),
-      0.0, 0.0, 1.0;
-
-    }
-    else if(CM.rows == 3 && CM.cols == 3)
-    {
-      cv::cv2eigen(CM, k);
-    }
-
-    Eigen::Matrix<float, 1, 5> dm;
-    cv::cv2eigen(DM, dm);
-
-    int width  = 0;
-    int height = 0;
-    RTV_EXPECT_TRUE_(fn_["width"].isNamed());
-    RTV_EXPECT_TRUE_(fn_["height"].isNamed());
-    fn_["width"] >> width;
-    fn_["height"] >> height;
-  }
-  if(vision_core::config_helper::loadNode(fn_, fs, "Camera-IMU"))
-  {
-
-  }
-
-  return true;
-}
-
-
-
-
-
-
 int main(int argc, char **argv)
 {
   std::string app_name = "MSCKF_demo_ros";
@@ -127,9 +37,9 @@ int main(int argc, char **argv)
 
   std::string bag_filename = "./euroc/MH_03_medium.bag";
   app.add_option("-b,--bagfile", bag_filename, "bag file name to be processed");
-  std::string topic_imu = "/imu";
+  std::string topic_imu = "/imu0";
   app.add_option("--topic_imu", topic_imu, "topic name");
-  std::string topic_camera = "/cam";
+  std::string topic_camera = "/cam0/image_raw";
   app.add_option("--topic_camera", topic_camera, "topic name");
 
   std::string topic_gt_position = "/gt_pos";
@@ -152,7 +62,6 @@ int main(int argc, char **argv)
 
   CLI11_PARSE(app, argc, argv);
 
-  RTV_EXPECT_TRUE(load_parameters(config_filename), "could not load parameters!");
 
   if(boost::filesystem::exists(boost::filesystem::path(bag_filename)))
   {
@@ -166,7 +75,7 @@ int main(int argc, char **argv)
     std::vector<std::string> topics{topic_imu, topic_camera, topic_gt_position, topic_gt_pose};
 
     rosbag::TopicQuery query(topics);
-    rosbag::View       view(bag); //, query);
+    rosbag::View       view(bag, query);
     float processing_stop_at  = stop * view.size();
     float processing_start_at = start * view.size();
 
@@ -186,7 +95,8 @@ int main(int argc, char **argv)
 
 
     msckf_mono::RosInterface ros_node;
-
+    RTV_EXPECT_TRUE(ros_node.init_YAML(config_filename), "could not load parameters!");
+    std::cout << "node configured...." << std::endl;
     do
     {
       size_t         seq_len       = view.size();
@@ -218,14 +128,14 @@ int main(int argc, char **argv)
             std::cout << "abort loop" << std::endl;
             break;
           }
-          if(image != nullptr)
+          if(image != nullptr &&  (m.getTopic() == topic_camera) )
           {
-            std::cout << "image" << std::endl;
+            std::cout << "image: " << std::endl;
             ros_node.imageCallback(image);
             //node.imgMonoCallback(image);
           }
 
-          if(imu != nullptr)
+          if(imu != nullptr &&  (m.getTopic() == topic_imu))
           {
             std::cout << "imu" << std::endl;
             ros_node.imuCallback(imu);
