@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(msckf_mono)
+# Include cmake modules
+
+include(cmake/Custom.cmake)
 
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
@@ -14,7 +17,12 @@ ENDIF()
 find_package(cmake_modules REQUIRED)
 find_package(Eigen REQUIRED)
 find_package(OpenCV REQUIRED)
-
+message(" **************************************")
+message(" --- Main Dependencies:")
+message(" * OpenCV: ${OpenCV_DIR}")
+message(" * Eigen: ${EIGEN3_INCLUDE_DIR}")
+message(" * Eigen: ${Eigen_INCLUDE_DIRS}")
+message(" **************************************")
 # separate install -- https://github.com/uzh-rpg/fast
 find_package(fast REQUIRED)
 
@@ -30,6 +38,12 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## System dependencies are found with CMake's conventions
 find_package(Boost REQUIRED)
+
+
+add_subdirectory(thirdparty/Sophus)
+add_subdirectory(thirdparty/utilities)
+add_subdirectory(thirdparty/vision_core)
+
 
 # Generate messages in the 'msg' folder
 add_message_files(
@@ -75,6 +89,8 @@ LIST(APPEND LINK_LIBS
   ${OpenCV_LIBS}
   ${catkin_LIBRARIES}
   ${fast_LIBRARIES}
+  utilities
+  vision_core
   )
 
 LIST(APPEND MSCKF_SRCS

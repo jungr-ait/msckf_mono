@@ -17,10 +17,101 @@
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 
+#include <eigen3/Eigen/Core>
+#include <opencv/cxeigen.hpp>
 #include <CLI11/CLI11.hpp>
 #include <boost/filesystem.hpp>
 #include <msckf_mono/ros_interface.h>
+#include <utilities/IO.hpp>
+#include <utilities/RTVerification.hpp>
+#include <vision_core/config_helper.hpp>
 //using namespace boost::filesystem;
+
+
+bool load_parameters(std::string const& filename)
+{
+  std::cout << "Load camera intrinsic  " << filename << std::endl;
+  cv::FileStorage fs(filename, cv::FileStorage::READ);
+
+  if(!fs.isOpened())
+  {
+    std::cout << "Could not load " << filename << std::endl;
+    return false;
+  }
+  cv::FileNode fn_;
+  if(vision_core::config_helper::loadNode(fn_, fs, "NOISE"))
+  {
+    // noise
+    RTV_EXPECT_TRUE_(fn_["w_var"].isNamed());
+    RTV_EXPECT_TRUE_(fn_["dbg_var"].isNamed());
+    RTV_EXPECT_TRUE_(fn_["a_var"].isNamed());
+    RTV_EXPECT_TRUE_(fn_["dba_var"].isNamed());
+    // init
+    RTV_EXPECT_TRUE_(fn_["q_var_init"].isNamed());
+    RTV_EXPECT_TRUE_(fn_["bg_var_init"].isNamed());
+    RTV_EXPECT_TRUE_(fn_["v_var_init"].isNamed());
+    RTV_EXPECT_TRUE_(fn_["ba_var_init"].isNamed());
+    RTV_EXPECT_TRUE_(fn_["p_var_init"].isNamed());
+  }
+  if(vision_core::config_helper::loadNode(fn_, fs, "TRACKER"))
+  {
+
+  }
+  if(vision_core::config_helper::loadNode(fn_, fs, "MSCKF"))
+  {
+
+  }
+  if(vision_core::config_helper::loadNode(fn_, fs, "Camera"))
+  {
+    RTV_EXPECT_TRUE_(fn_.type() == cv::FileNode::MAP);
+    RTV_EXPECT_TRUE_(fn_.size() >= 2);
+
+    std::uint32_t camera_id = 0;
+    RTV_EXPECT_TRUE_(fn_["camera_id"].isNamed());
+    vision_core::config_helper::get_if_uint32(fn_, "camera_id", camera_id);
+
+    std::cout << "-- Loading parameters: " << (std::string) fn_["cameraName"] << ", "
+            << (std::string) fn_["deviceName"] << ", " << std::to_string(camera_id) << std::endl;
+
+    cv::Mat CM, DM;
+    RTV_EXPECT_TRUE_(fn_["CM"].isNamed());
+    RTV_EXPECT_TRUE_(fn_["DM"].isNamed());
+    fn_["CM"] >> CM;
+    fn_["DM"] >> DM;
+
+    RTV_EXPECT_TRUE_(CM.rows == 4 || (CM.rows == 3 && CM.cols == 3));
+    Eigen::Matrix3f k;
+
+    if(CM.rows == 4)
+    {
+      k << CM.at<double>(0), 0.0, CM.at<double>(2),
+      0.0, CM.at<double>(1), CM.at<double>(3),
+      0.0, 0.0, 1.0;
+
+    }
+    else if(CM.rows == 3 && CM.cols == 3)
+    {
+      cv::cv2eigen(CM, k);
+    }
+
+    Eigen::Matrix<float, 1, 5> dm;
+    cv::cv2eigen(DM, dm);
+
+    int width  = 0;
+    int height = 0;
+    RTV_EXPECT_TRUE_(fn_["width"].isNamed());
+    RTV_EXPECT_TRUE_(fn_["height"].isNamed());
+    fn_["width"] >> width;
+    fn_["height"] >> height;
+  }
+  if(vision_core::config_helper::loadNode(fn_, fs, "Camera-IMU"))
+  {
+
+  }
+
+  return true;
+}
+
 
 
 
@@ -31,6 +122,7 @@ int main(int argc, char **argv)
   std::string app_name = "MSCKF_demo_ros";
   ros::init(argc, argv, app_name);
   ros::start();
+
   CLI::App app{app_name};
 
   std::string bag_filename = "./euroc/MH_03_medium.bag";
@@ -55,15 +147,12 @@ int main(int argc, char **argv)
   int rate_Hz = 1;
   app.add_option("--rate_Hz", rate_Hz, "processing rate");
 
+  std::string config_filename = "./euroc/euroc_config.yaml";
+  app.add_option("-c,--config_filename", config_filename, "configuration file");
+
   CLI11_PARSE(app, argc, argv);
 
-
-
-  std::cout << "Hello World...\n\t #some stats about the executable: \n" << std::endl;
-  boost::filesystem::path app_path{std::string(argv[0])};
-  std::cout << app_path.relative_path() << std::endl;
-  std::cout << app_path.parent_path() << std::endl;
-  std::cout << app_path.filename() << std::endl;
+  RTV_EXPECT_TRUE(load_parameters(config_filename), "could not load parameters!");
 
   if(boost::filesystem::exists(boost::filesystem::path(bag_filename)))
   {
