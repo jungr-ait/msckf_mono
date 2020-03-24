@@ -4,19 +4,12 @@ project(msckf_mono)
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -msse4.2 -msse -msse2 -mavx -funroll-loops")
-SET(CMAKE_BUILD_TYPE "RelWithDebInfo")
 
-IF(NOT CMAKE_BUILD_TYPE)
-  SET(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: None (CMAKE_CXX_FLAGS or CMAKE_C_FLAGS used) Debug Release RelWithDebInfo MinSizeRel." FORCE)
-ENDIF()
-
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++14 -DEIGEN_NO_DEBUG")
 IF(DEFINED ENV{ARM_ARCHITECTURE})
   SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -mfpu=neon -march=armv7-a")
 ELSE()
   SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -msse -msse4.2 -msse2")
 ENDIF()
-SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -std=c++14 -g")
 
 find_package(cmake_modules REQUIRED)
 find_package(Eigen REQUIRED)
@@ -107,3 +100,14 @@ target_link_libraries(msckf_mono_node msckf_mono ${LINK_LIBS})
 
 # add_executable(pcv_msckf datasets/penncosy_msckf.cpp datasets/penncosy_readers.cpp)
 # target_link_libraries(pcv_msckf ${LINK_LIBS} msckf_mono)
+
+FILE(GLOB_RECURSE inc_files "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h*")
+add_executable(msckf_demo_ros src/main_demo_ros.cpp ${inc_files})
+target_include_directories(msckf_demo_ros
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_BINARY_DIR}/source/include
+    ${OpenCV_INCLUDE_DIRS}
+    ${catkin_INCLUDE_DIRS}
+    )
+target_link_libraries(msckf_demo_ros msckf_mono ${LINK_LIBS})
