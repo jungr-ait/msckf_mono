@@ -25,11 +25,34 @@
 #include <msckf_mono/ros_interface.h>
 #include <utilities/IO.hpp>
 #include <utilities/RTVerification.hpp>
+#include <vision_core/utils.hpp>
 #include <vision_core/config_helper.hpp>
 //using namespace boost::filesystem;
 
+
+
+void test_quat_2_rot_conversion()
+{
+  cv::Mat R_cv = (cv::Mat_<double>(3,3) << 0.014865550,-0.999880910,0.004140296,0.999557257,0.014967221,0.025715530,-0.025774436,0.003756188,0.999660730);
+  Matrix3d R_eig; R_eig << 0.014865550,-0.999880910,0.004140296,0.999557257,0.014967221,0.025715530,-0.025774436,0.003756188,0.999660730;
+
+
+  Matrix3d  R_cv_eig;
+  cv::cv2eigen(R_cv, R_cv_eig);
+  Quaterniond q_eig =  Quaternion<double>(R_eig);
+  Quaterniond q_cv_eig =  Quaternion<double>(R_cv_eig);
+
+  std::cout << "q_eig: " << vision_core::utils::toString(q_eig) << std::endl;
+  std::cout << "q_cv_eig: " << vision_core::utils::toString(q_cv_eig) << std::endl;
+  std::cout << " should be:  0.7123 -0.0077 0.0105 0.7018 (wxyz)" << std::endl;
+}
+
+
+
 int main(int argc, char **argv)
 {
+  test_quat_2_rot_conversion();
+
   std::string app_name = "MSCKF_demo_ros";
   ros::init(argc, argv, app_name);
   ros::start();

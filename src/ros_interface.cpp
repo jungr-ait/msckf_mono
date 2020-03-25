@@ -530,7 +530,7 @@ namespace msckf_mono
     R_imu_cam_ = R_cam_imu_.transpose();
     p_imu_cam_ = R_imu_cam_ * (-1. * p_cam_imu_);
 
-    camera_.q_CI = Quaternion<float>(R_C_I).inverse(); // should not be, but I think there is a colloum, row major issue!
+    camera_.q_CI = Quaternion<float>(R_C_I); // double checked with: https://www.andre-gaschler.com/rotationconverter/
     camera_.p_C_I = p_C_I;
   }
 
