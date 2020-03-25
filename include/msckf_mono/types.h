@@ -50,8 +50,8 @@ namespace msckf_mono {
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         _Scalar c_u, c_v, f_u, f_v, b;
 
-      Quaternion<_Scalar> q_CI;
-      Point<_Scalar> p_C_I;
+      Quaternion<_Scalar> q_CI;    // q_CI reads as CAMERA in IMU (from IMU to CAMERA)
+      Point<_Scalar> p_C_I;        // p_C_I reads as CAMERA in IMU (from IMU to CAMERA in IMU)
     };
 
   template <typename _Scalar>

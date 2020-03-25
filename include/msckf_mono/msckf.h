@@ -156,6 +156,7 @@ namespace msckf_mono {
         cam_state.last_correlated_id = -1;
         cam_state.q_CG = q_CG;
 
+        // read as : CAMERA in GLOBAL
         cam_state.p_C_G =
           imu_state_.p_I_G + imu_state_.q_IG.inverse() * camera_.p_C_I;
 
