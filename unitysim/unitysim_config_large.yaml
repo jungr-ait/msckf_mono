@@ -1,0 +1,74 @@
+%YAML:1.0
+## call main_demo_ros.cpp
+# --topic_imu /mus/imu --topic_camera /mus/image --topic_gt_pose /mus/ground_truth_pose_imu --rate_reduction_imu 10 --rate_reduction_cam 10 -b /home/jungr/workspace/datasets/MCS_Run_15_Resolutions/large.bag -c /home/jungr/workspace/NAV/development/catkin_workspaces/msckf_mono_cws/src/msckf_mono/unitysim/unitysim_config_large.yaml   
+################################################################################
+## NOISE parameters:
+
+NOISE:
+  # IMU parameters:
+  w_var: 1.87e-4
+  dbg_var: 2.66e-5
+  a_var: 1.86e-3
+  dba_var: 4.33e-4
+  # INIT parameters:
+  q_var_init: 1e-5
+  bg_var_init: 1e-5
+  v_var_init: 1e-2
+  ba_var_init: 1e-4
+  p_var_init: 1e-12
+
+################################################################################
+## TRACKER parameters:  feature_cov = detection_threshold_
+TRACKER:
+  feature_cov: 50
+  n_grid_rows: 20
+  n_grid_cols: 20
+  
+################################################################################
+## INIT parameters:
+INIT:
+  stand_still_time: 1.9
+################################################################################
+## MSCKF parameters:
+MSCKF:
+  max_gn_cost_norm: 7
+  translation_threshold: 0.1
+  min_rcond: 3e-8
+  keyframe_transl_dist: 0.005
+  keyframe_rot_dist: 0.05
+  min_track_length: 3
+  max_track_length: 100
+  max_cam_states: 30
+  ransac_threshold: 0.00000002
+
+
+################################################################################
+## CAMERA parameters: from euroc dataset
+# intrinsics
+Camera:
+  cameraDistortionModel: radtan
+  CM: !!opencv-matrix
+    rows: 4
+    cols: 1
+    dt: d
+    data: [1000, 1000, 639.5, 479.5]
+  DM: !!opencv-matrix
+    rows: 4
+    cols: 1
+    dt: d
+    data: [0, 0, 0, 0 ]
+# extrinsic: R is row-wise R(1,1), R(1,2), R(1,3), R(2,1), R(2,2) ...
+# R_ci: reads as from IMU to CAMERA!
+Camera-IMU:
+  R_ci: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: d
+    data: [ 1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, -1.0 ]
+  p_ci: !!opencv-matrix
+    rows: 3
+    cols: 1
+    dt: d
+    data: [0, 0, 0]
+
+## done

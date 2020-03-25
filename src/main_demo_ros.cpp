@@ -84,6 +84,12 @@ int main(int argc, char **argv)
   std::string config_filename = "./euroc/euroc_config.yaml";
   app.add_option("-c,--config_filename", config_filename, "configuration file");
 
+
+  int rate_reduction_imu = 1;
+  app.add_option("--rate_reduction_imu", rate_reduction_imu, "reduction factor for imu");
+  int rate_reduction_cam = 1;
+  app.add_option("--rate_reduction_cam", rate_reduction_cam, "reduction factor for cam");
+
   CLI11_PARSE(app, argc, argv);
 
 
@@ -145,7 +151,7 @@ int main(int argc, char **argv)
 
 
 
-
+      unsigned num_imu = 0, num_cam = 0, num_pose = 0, num_pos = 0;
 
       for(rosbag::MessageInstance const& m : view)
       {
@@ -174,21 +180,31 @@ int main(int argc, char **argv)
           }
           if(image != nullptr &&  (m.getTopic() == topic_camera) )
           {
-            node.imageCallback(image);
+            num_cam += 1;
+            if( num_cam % rate_reduction_cam == 0)
+            {
+              node.imageCallback(image);
+            }
           }
 
           if(imu != nullptr &&  (m.getTopic() == topic_imu))
           {
-            node.imuCallback(imu);
+            num_imu += 1;
+            if( num_cam % rate_reduction_imu == 0)
+            {
+              node.imuCallback(imu);
+            }
           }
 
-          if(gt_pose != nullptr &&  (m.getTopic() == topic_gt_position))
+          if(gt_pose != nullptr &&  (m.getTopic() == topic_gt_pose))
           {
+            num_pose += 1;
             node.pose_GT_Callback(gt_pose);
           }
 
           if(gt_position != nullptr &&  (m.getTopic() == topic_gt_position))
           {
+            num_pos += 1;
             node.point_GT_Callback(gt_position);
           }
 
