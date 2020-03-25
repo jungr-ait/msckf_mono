@@ -4,6 +4,7 @@
 #include <utilities/IO.hpp>
 #include <utilities/RTVerification.hpp>
 #include <vision_core/config_helper.hpp>
+#include <msckf_mono/helper.hpp>
 
 namespace msckf_mono
 {
@@ -11,7 +12,9 @@ namespace msckf_mono
     nh_("~"),
     it_(nh_),
     imu_calibrated_(false),
-    prev_imu_time_(0.0)
+    prev_imu_time_(0.0),
+    path_pub_est_(nh_, "path_est"),
+    path_pub_gt_(nh_, "path_gt")
   {
 
   }
@@ -59,9 +62,15 @@ namespace msckf_mono
 
     current_imu.dT = cur_imu_time - prev_imu_time_;
 
-    imu_queue_.emplace_back(cur_imu_time, current_imu);
+    std::tuple<double, imuReading<float>> val(cur_imu_time, current_imu);
+    imu_queue_.emplace_back(val);
 
     prev_imu_time_ = cur_imu_time;
+//    if(imu_calibrated_)
+//    {
+//      msckf_.propagate(current_imu);
+//      publish_est();
+//    }
   }
 
   void RosInterface::imageCallback(const sensor_msgs::ImageConstPtr& msg)
@@ -84,6 +93,8 @@ namespace msckf_mono
       }
 
       if(can_initialize_imu()){
+
+        std::cout << "can initialize imu now at: " << std::setprecision(std::numeric_limits < long double > ::digits10 + 1) << prev_imu_time_ << std::endl;
         initialize_imu();
 
         imu_calibrated_ = true;
@@ -111,9 +122,10 @@ namespace msckf_mono
 
     for(auto& reading : imu_since_prev_img){
       msckf_.propagate(reading);
+      publish_est();
 
-      Vector3<float> gyro_measurement = R_imu_cam_ * (reading.omega - init_imu_state_.b_g);
-      track_handler_->add_gyro_reading(gyro_measurement);
+      Vector3<float> omega_in_C = camera_.q_CI.inverse().matrix() * (reading.omega - init_imu_state_.b_g);
+      track_handler_->add_gyro_reading(omega_in_C);
     }
 
     track_handler_->set_current_image( cv_ptr->image, cur_image_time );
@@ -137,6 +149,25 @@ namespace msckf_mono
 
     publish_core(msg->header.stamp);
     publish_extra(msg->header.stamp);
+    publish_est();
+  }
+
+  void RosInterface::point_GT_Callback(const geometry_msgs::PointStampedConstPtr &msg)
+  {
+    last_pose_stamped_gt_.header = msg->header;
+    last_pose_stamped_gt_.pose.orientation.w = 1;
+    last_pose_stamped_gt_.pose.orientation.x = 0;
+    last_pose_stamped_gt_.pose.orientation.y = 0;
+    last_pose_stamped_gt_.pose.orientation.z = 0;
+    last_pose_stamped_gt_.pose.position = msg->point;
+
+    publish_gt();
+  }
+
+  void RosInterface::pose_GT_Callback(const geometry_msgs::PoseStampedConstPtr &msg)
+  {
+    last_pose_stamped_gt_ = *msg;
+    publish_gt();
   }
 
   void RosInterface::publish_core(const ros::Time& publish_time)
@@ -145,7 +176,7 @@ namespace msckf_mono
 
     nav_msgs::Odometry odom;
     odom.header.stamp = publish_time;
-    odom.header.frame_id = "map";
+    odom.header.frame_id = parent_frame_id_;
     odom.twist.twist.linear.x = imu_state.v_I_G[0];
     odom.twist.twist.linear.y = imu_state.v_I_G[1];
     odom.twist.twist.linear.z = imu_state.v_I_G[2];
@@ -182,6 +213,26 @@ namespace msckf_mono
     imu_sub_ = nh_.subscribe("imu", 200, &RosInterface::imuCallback, this);
     image_sub_ = it_.subscribe("image_mono", 20,
                                &RosInterface::imageCallback, this);
+
+    gt_pose_sub_ = nh_.subscribe("pose_gt", 10, &RosInterface::pose_GT_Callback, this);
+    gt_point_sub_ = nh_.subscribe("point_gt", 10, &RosInterface::point_GT_Callback, this);
+  }
+
+  void RosInterface::publish_est()
+  {
+     imuState<float> state = msckf_.getImuState();
+
+      Sophus::SE3f pose_I_G(state.q_IG, state.p_I_G);
+      geometry_msgs::Pose pose_I_G_ros = msckf::toRos(pose_I_G);
+
+      tf_pub_imu_.publish(pose_I_G_ros, parent_frame_id_, child_frame_id_);
+      path_pub_est_.publish(pose_I_G_ros, ros::Time::now());
+  }
+
+  void RosInterface::publish_gt()
+  {
+    tf_pub_imu_.publish(last_pose_stamped_gt_.pose, parent_frame_id_, "GT");
+    path_pub_gt_.publish(last_pose_stamped_gt_.pose, ros::Time::now());
   }
 
   bool RosInterface::can_initialize_imu()
@@ -210,6 +261,7 @@ namespace msckf_mono
       gyro_accum += imu_reading.omega;
       num_readings++;
     }
+    std::cout << "number IMU readings for init: " << num_readings << std::endl;
 
     Eigen::Vector3f accel_mean = accel_accum / num_readings;
     Eigen::Vector3f gyro_mean = gyro_accum / num_readings;
@@ -220,11 +272,29 @@ namespace msckf_mono
         -init_imu_state_.g, accel_mean);
 
     init_imu_state_.b_a = init_imu_state_.q_IG*init_imu_state_.g + accel_mean;
-
-    init_imu_state_.p_I_G.setZero();
     init_imu_state_.v_I_G.setZero();
-    const auto q = init_imu_state_.q_IG;
+    if(!last_pose_stamped_gt_.header.stamp.isZero())
+    {
+      std::cout << "* using last pose_I_G (from G to I) for  init:" << std::endl;
+      std::cout << msckf::toString(last_pose_stamped_gt_) << std::endl;
 
+      geometry_msgs::Pose pose_I_G = last_pose_stamped_gt_.pose;
+      init_imu_state_.p_I_G = msckf::toEigen(pose_I_G.position).cast <float> ();
+      //init_imu_state_.q_IG = msckf::toEigen(pose_I_G.orientation).cast <float> ();
+    }
+    else
+    {
+      std::cout << "* using default init:" << std::endl;
+      init_imu_state_.p_I_G.setZero();
+
+
+    }
+
+    init_imu_state_.p_I_G_null = init_imu_state_.p_I_G;
+    init_imu_state_.v_I_G_null = init_imu_state_.v_I_G;
+    init_imu_state_.q_IG_null = init_imu_state_.q_IG;
+
+    const auto q = init_imu_state_.q_IG;
     ROS_INFO_STREAM("\nInitial IMU State" <<
       "\n--p_I_G " << init_imu_state_.p_I_G.transpose() <<
       "\n--q_IG " << q.w() << "," << q.x() << "," << q.y() << "," << q.x() <<
@@ -232,6 +302,8 @@ namespace msckf_mono
       "\n--b_a " << init_imu_state_.b_a.transpose() <<
       "\n--b_g " << init_imu_state_.b_g.transpose() <<
       "\n--g " << init_imu_state_.g.transpose());
+
+    std::cout << std::endl;
 
   }
 
@@ -248,6 +320,12 @@ namespace msckf_mono
     msckf_.initialize(camera_, noise_params_, msckf_params_, init_imu_state_);
   }
 
+  //////////////////////////////////////////////////////////////////////
+  // HELPER CODE:
+  //////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////
+  /// \brief RosInterface::load_ROS_parameters
+  ///
   void RosInterface::load_ROS_parameters()
   {
     std::string kalibr_camera;
@@ -287,20 +365,16 @@ namespace msckf_mono
       }
     }
 
-    R_cam_imu_ =  T_cam_imu.block<3,3>(0,0);
-    p_cam_imu_ =  T_cam_imu.block<3,1>(0,3);
-
-    R_imu_cam_ = R_cam_imu_.transpose();
-    p_imu_cam_ = R_imu_cam_ * (-1. * p_cam_imu_);
-
     // setup camera parameters
     camera_.f_u = intrinsics[0];
     camera_.f_v = intrinsics[1];
     camera_.c_u = intrinsics[2];
     camera_.c_v = intrinsics[3];
 
-    camera_.q_CI = Quaternion<float>(R_cam_imu_); // TODO please check it
-    camera_.p_C_I = p_cam_imu_;
+    auto R_CI =  T_cam_imu.block<3,3>(0,0);
+    auto p_CI =  T_cam_imu.block<3,1>(0,3);
+    camera_.q_CI = Quaternion<float>(R_CI); // q_CI reads as CAMERA in IMU (from IMU to CAMERA)
+    camera_.p_C_I = p_CI;  // p_C_I reads as CAMERA in IMU (from IMU to CAMERA in IMU)
 
     // Feature tracking parameteres
     nh_.param<int>("n_grid_rows", n_grid_rows_, 8);
@@ -382,8 +456,8 @@ namespace msckf_mono
     float fx, fy, cx,cy, k1, k2, p1,p2;
     std::string distortion_model = "radtan";
     float stand_still_time;
-    Matrix3f R_C_I;
-    Vector3f p_C_I;
+    Matrix3f R_I_C;
+    Vector3f p_I_C;
     cv::FileNode fn_;
     RTV_EXPECT_TRUE_(vision_core::config_helper::loadNode(fn_, fs, "NOISE"));
     {
@@ -481,16 +555,16 @@ namespace msckf_mono
     }
     if(vision_core::config_helper::loadNode(fn_, fs, "Camera-IMU"))
     {
-      cv::Mat R_CI, p_CI;
+      cv::Mat R_IC, p_IC;  // reads as: from CAMERA to IMU
       RTV_EXPECT_TRUE_(fn_["R_ci"].isNamed());
       RTV_EXPECT_TRUE_(fn_["p_ci"].isNamed());
-      fn_["R_ci"] >> R_CI;
-      fn_["p_ci"] >> p_CI;
-      cv::cv2eigen(R_CI, R_C_I);
-      cv::cv2eigen(p_CI, p_C_I);
+      fn_["R_ci"] >> R_IC;
+      fn_["p_ci"] >> p_IC;
+      cv::cv2eigen(R_IC, R_I_C);
+      cv::cv2eigen(p_IC, p_I_C);
     }
 
-    set_CAMERA_params(fx, fy, cx,cy, k1, k2, p1, p2, distortion_model, R_C_I, p_C_I);
+    set_CAMERA_params(fx, fy, cx,cy, k1, k2, p1, p2, distortion_model, R_I_C, p_I_C);
     set_NOISE_params(fx, fy, feature_cov, w_var, dbg_var, a_var, dba_var, q_var_init, bg_var_init, v_var_init, ba_var_init, p_var_init);
     set_MSCKF_params(fx, max_gn_cost_norm, translation_threshold, min_rcond, keyframe_transl_dist, keyframe_rot_dist, max_track_length, min_track_length, max_cam_states);
     set_TRACKER_params(n_grid_rows, n_grid_cols, ransac_threshold);
@@ -522,16 +596,10 @@ namespace msckf_mono
     dist_coeffs_.at<float>(3) = p2;
   }
 
-  void RosInterface::set_cam_imu_extrinsics(const Matrix3f &R_C_I, const Vector3f &p_C_I)
+  void RosInterface::set_cam_imu_extrinsics(const Matrix3f &R_CI, const Vector3f &p_CI)
   {
-    R_cam_imu_ = R_C_I;
-    p_cam_imu_ = p_C_I;
-
-    R_imu_cam_ = R_cam_imu_.transpose();
-    p_imu_cam_ = R_imu_cam_ * (-1. * p_cam_imu_);
-
-    camera_.q_CI = Quaternion<float>(R_C_I); // double checked with: https://www.andre-gaschler.com/rotationconverter/
-    camera_.p_C_I = p_C_I;
+    camera_.q_CI = Quaternion<float>(R_CI).inverse(); // q_CI reads as CAMERA in IMU (from IMU to CAMERA)
+    camera_.p_C_I = p_CI;  // p_C_I reads as CAMERA in IMU (from IMU to CAMERA in IMU)
   }
 
   void RosInterface::set_imu_noise_params(const float w_var, const float dbg_var, const float a_var, const float dba_var)
@@ -558,12 +626,12 @@ namespace msckf_mono
     noise_params_.initial_imu_covar = IMUCovar_vars.asDiagonal();
   }
 
-  void RosInterface::set_CAMERA_params(const float fx, const float fy, const float cx, const float cy, const float k1, const float k2, const float p1, const float p2, const std::string &distortion_model, const Matrix3f &R_C_I, const Vector3f &p_C_I)
+  void RosInterface::set_CAMERA_params(const float fx, const float fy, const float cx, const float cy, const float k1, const float k2, const float p1, const float p2, const std::string &distortion_model, const Matrix3f &R_CI, const Vector3f &p_CI)
   {
     this->set_camera_intrinsics(fx, fy, cx, cy);
     this->set_distortion_coef(k1, k2, p1, p2);
     distortion_model_ = distortion_model;
-    this->set_cam_imu_extrinsics(R_C_I, p_C_I);
+    this->set_cam_imu_extrinsics(R_CI, p_CI);
   }
 
   void RosInterface::set_NOISE_params(const float fx,

@@ -15,6 +15,7 @@
 #include <msckf_mono/msckf.h>
 #include <msckf_mono/corner_detector.h>
 #include <atomic>
+#include <msckf_mono/ros_utils.hpp>
 
 namespace msckf_mono
 {
@@ -32,6 +33,10 @@ namespace msckf_mono
 
       void imageCallback(const sensor_msgs::ImageConstPtr& msg);
 
+      void point_GT_Callback(const geometry_msgs::PointStampedConstPtr& msg);
+
+      void pose_GT_Callback(const geometry_msgs::PoseStampedConstPtr & msg);
+
       void publish_core(const ros::Time& publish_time);
 
       void publish_extra(const ros::Time& publish_time);
@@ -41,6 +46,10 @@ namespace msckf_mono
 
   private:
       void init_topics();
+
+      void publish_est();
+
+      void publish_gt();
 
       void load_ROS_parameters();
 
@@ -54,7 +63,7 @@ namespace msckf_mono
 
       // k_1, k_2, k_3, k_4, k_5, and k_6 are radial distortion coefficients. p_1 and p_2 are tangential distortion coefficients.
       void set_distortion_coef(float const k1, float const k2, float const p1, float const p2);
-      void set_cam_imu_extrinsics(Matrix3f const& R_C_I, Vector3f const& p_C_I);
+      void set_cam_imu_extrinsics(Matrix3f const& R_CI, Vector3f const& p_CI);
       void set_imu_noise_params(float const w_var, float const dbg_var, float const a_var, float const dba_var);
       void set_P(float const q_var_init, float const bg_var_init, float const v_var_init, float const ba_var_init, float const p_var_init);
 
@@ -67,8 +76,8 @@ namespace msckf_mono
                         float const p1,
                         float const p2,
                         std::string const& distortion_model,
-                        Matrix3f const& R_C_I,
-                        Vector3f const& p_C_I);
+                        Matrix3f const& R_CI,
+                        Vector3f const& p_CI);
 
       void set_NOISE_params(float const fx,
                             float const fy,
@@ -82,7 +91,7 @@ namespace msckf_mono
                             float const v_var_init = 1e-2,
                             float const ba_var_init = 1e-2,
                             float const p_var_init = 1e-12);
-;
+
 
       void set_MSCKF_params(const float fx,
                             float const max_gn_cost_norm = 11,
@@ -110,11 +119,13 @@ namespace msckf_mono
       image_transport::Publisher track_image_pub_;
       ros::Publisher odom_pub_;
 
-      ros::Subscriber imu_sub_;
+      ros::Subscriber imu_sub_, gt_pose_sub_, gt_point_sub_;
 
+      PathPublisher path_pub_est_, path_pub_gt_;
+      TFPublisher tf_pub_gt_, tf_pub_imu_;
 
-
-
+      std::string parent_frame_id_ = "world";
+      std::string child_frame_id_ = "imu";
 
       bool debug_;
 
@@ -123,12 +134,6 @@ namespace msckf_mono
 
       void setup_track_handler();
       std::shared_ptr<corner_detector::TrackHandler> track_handler_;
-
-      Matrix3<float> R_imu_cam_;
-      Vector3<float> p_imu_cam_;
-
-      Matrix3<float> R_cam_imu_;
-      Vector3<float> p_cam_imu_;
 
       std::string camera_model_;
       cv::Mat K_;
@@ -156,6 +161,8 @@ namespace msckf_mono
       noiseParams<float> noise_params_;
       MSCKFParams<float> msckf_params_;
       imuState<float> init_imu_state_;
+
+      geometry_msgs::PoseStamped last_pose_stamped_gt_;
   };
 }
 

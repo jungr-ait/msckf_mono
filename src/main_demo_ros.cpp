@@ -66,14 +66,14 @@ int main(int argc, char **argv)
   std::string topic_camera = "/cam0/image_raw";
   app.add_option("--topic_camera", topic_camera, "topic name");
 
-  std::string topic_gt_position = "/gt_pos";
+  std::string topic_gt_position = "/leica/position";
   app.add_option("--topic_gt_position", topic_gt_position, "topic name");
   std::string topic_gt_pose = "/gt_pose";
   app.add_option("--topic_gt_pose", topic_gt_pose, "topic name");
 
-  int start_sec = 0;
+  float start_sec = 0;
   app.add_option("--start_sec", start_sec, "start time");
-  int stop_sec = 0;
+  float stop_sec = 0;
   app.add_option("--stop_sec", stop_sec, "stop time");
 
   int num_loops = 1;
@@ -174,26 +174,22 @@ int main(int argc, char **argv)
           }
           if(image != nullptr &&  (m.getTopic() == topic_camera) )
           {
-            //std::cout << "image: " << std::endl;
             node.imageCallback(image);
-            //node.imgMonoCallback(image);
           }
 
           if(imu != nullptr &&  (m.getTopic() == topic_imu))
           {
-            //std::cout << "imu" << std::endl;
             node.imuCallback(imu);
-            //node.imuCallback(imu);
           }
 
-          if(gt_pose != nullptr)
+          if(gt_pose != nullptr &&  (m.getTopic() == topic_gt_position))
           {
-            //node.orientCallback(orient);
+            node.pose_GT_Callback(gt_pose);
           }
 
-          if(gt_position != nullptr)
+          if(gt_position != nullptr &&  (m.getTopic() == topic_gt_position))
           {
-            //node.groundTruthCallback(groundTruth);
+            node.point_GT_Callback(gt_position);
           }
 
           ros::spinOnce();
