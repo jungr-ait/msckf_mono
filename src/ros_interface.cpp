@@ -14,7 +14,8 @@ namespace msckf_mono
     imu_calibrated_(false),
     prev_imu_time_(0.0),
     path_pub_est_(nh_, "path_est"),
-    path_pub_gt_(nh_, "path_gt")
+    path_pub_gt_(nh_, "path_gt"),
+    map_pub_(nh_, "map")
   {
 
   }
@@ -202,6 +203,10 @@ namespace msckf_mono
       out_img.encoding = sensor_msgs::image_encodings::TYPE_8UC3;
       out_img.image = track_handler_->get_track_image();
       track_image_pub_.publish(out_img.toImageMsg());
+    }
+    if(map_pub_.pub_.getNumSubscribers()>0)
+    {
+      map_pub_.publish(msckf_.getMap());
     }
   }
 

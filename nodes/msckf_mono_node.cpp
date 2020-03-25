@@ -3,7 +3,6 @@
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "msckf_mono_node");
-  ros::NodeHandle nh;
-  msckf_mono::RosInterface ri(nh);
+  msckf_mono::RosInterface ri();
   ros::spin();
 }

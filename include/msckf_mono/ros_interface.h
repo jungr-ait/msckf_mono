@@ -123,6 +123,7 @@ namespace msckf_mono
 
       PathPublisher path_pub_est_, path_pub_gt_;
       TFPublisher tf_pub_gt_, tf_pub_imu_;
+      MapPublisher map_pub_;
 
       std::string parent_frame_id_ = "world";
       std::string child_frame_id_ = "imu";
