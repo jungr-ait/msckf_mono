@@ -2,12 +2,9 @@
 * FILENAME:     IO.hpp
 * PURPOSE:      IO
 * AUTHOR:       jungr - Roland Jung
-* MAIL:         Roland.Jung@ait.ac.at
 * VERSION:      v1.0.0
 * CREATION:     03.11.2016
 *
-*  Copyright (C) 2017 AIT Austrian Institute of Technology GmbH
-*  All rights reserved. See the LICENSE file for details.
 ******************************************************************************/
 #ifndef UTILS_IO_HPP
 #define UTILS_IO_HPP

@@ -2,12 +2,9 @@
 * FILENAME:     config_helper
 * PURPOSE:      %{Cpp:License:ClassName}
 * AUTHOR:       jungr - Roland Jung
-* MAIL:         Roland.Jung@ait.ac.at
 * VERSION:      v1.0.0
 * CREATION:     9.10.2017
 *
-*  Copyright (C) 2017 Austrian Institute of Technologies GmbH - AIT
-*  All rights reserved. See the LICENSE file for details.
 ******************************************************************************/
 #ifndef CONFIG_HELPER_HPP
 #define CONFIG_HELPER_HPP

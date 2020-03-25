@@ -2,12 +2,9 @@
 * FILENAME:     utils
 * PURPOSE:      %{Cpp:License:ClassName}
 * AUTHOR:       jungr - Roland Jung
-* MAIL:         Roland.Jung@ait.ac.at
 * VERSION:      v1.0.0
 * CREATION:     29.9.2017
 *
-*  Copyright (C) 2017 AIT Austrian Institute of Technology GmbH
-*  All rights reserved. See the LICENSE file for details.
 ******************************************************************************/
 #ifndef VISION_CORE_UTILS_HPP
 #define VISION_CORE_UTILS_HPP
@@ -161,7 +158,7 @@ namespace vision_core
     }
 
     template<typename T>
-    static inline std::string toString(Sophus::SE3Group<T> const& s)
+    static inline std::string toString(Sophus::SE3<T> const& s)
     {
       std::stringstream str;
       str << "S3E: " << toString(s.unit_quaternion()) << "; " << toString(s.translation());
@@ -234,17 +231,17 @@ namespace vision_core
     }
 
     template<typename T>
-    inline Sophus::Sim3Group<T> toSim3(Sophus::SE3Group<T> const& se3, T const scale)
+    inline Sophus::Sim3<T> toSim3(Sophus::SE3<T> const& se3, T const scale)
     {
-      Sophus::Sim3Group<T> sim3(se3.unit_quaternion(), se3.translation());
+      Sophus::Sim3<T> sim3(se3.unit_quaternion(), se3.translation());
       sim3.setScale(scale);
       return sim3;
     }
 
     template<typename T>
-    inline Sophus::SE3Group<T> toSE3(Sophus::Sim3Group<T> const& sim3)
+    inline Sophus::SE3<T> toSE3(Sophus::Sim3<T> const& sim3)
     {
-      Sophus::SE3Group<T> se3(sim3.quaternion(), sim3.translation()/sim3.scale());
+      Sophus::SE3<T> se3(sim3.quaternion(), sim3.translation()/sim3.scale());
 
 
       return se3;

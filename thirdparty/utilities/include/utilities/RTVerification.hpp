@@ -3,8 +3,6 @@
 * PURPOSE:
 * AUTHOR:       Roland Jung
 *
-*  Copyright (C) 2015 AIT Austrian Institute of Technology GmbH
-*  All rights reserved.
 ******************************************************************************/
 #ifndef RTVERIFICATION_HPP
 #define RTVERIFICATION_HPP

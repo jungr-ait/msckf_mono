@@ -19,8 +19,8 @@ NOISE:
 ## TRACKER parameters:
 TRACKER:
   feature_cov: 7
-  n_grid_rows: 10
-  n_grid_cols: 10
+  n_grid_rows: 8
+  n_grid_cols: 8
   
 ################################################################################
 ## INIT parameters:

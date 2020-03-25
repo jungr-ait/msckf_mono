@@ -2,12 +2,9 @@
 * FILENAME:     math
 * PURPOSE:      %{Cpp:License:ClassName}
 * AUTHOR:       jungr - Roland Jung
-* MAIL:         Roland.Jung@ait.ac.at
 * VERSION:      v1.0.0
 * CREATION:     29.9.2017
-*
-*  Copyright (C) 2017 AIT Austrian Institute of Technology GmbH
-*  All rights reserved. See the LICENSE file for details.
+
 ******************************************************************************/
 #ifndef VISION_CORE_MATH_HPP
 #define VISION_CORE_MATH_HPP
