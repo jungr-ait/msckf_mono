@@ -19,6 +19,10 @@
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Point.h>
 #include <tf/transform_broadcaster.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <pcl_ros/point_cloud.h>
+#include <pcl/point_types.h>
+#include <Eigen/Core>
 
 namespace msckf_mono
 {
@@ -130,6 +134,43 @@ namespace msckf_mono
   private:
     tf::TransformBroadcaster br_;
   };
+
+
+  class MapPublisher {
+  public:
+    MapPublisher(ros::NodeHandle & nh, std::string const& topic_name) : parent_frame_id_("world")
+    {
+      pub_ = nh.advertise<sensor_msgs::PointCloud2>(topic_name, 100);
+    }
+
+    void publish(std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> const& map)
+    {
+      if(pub_.getNumSubscribers()>0){
+        //map =msckf.getMap();
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr pointcloud(new pcl::PointCloud<pcl::PointXYZRGB>());
+        pointcloud->header.frame_id = parent_frame_id_;
+        pointcloud->height = 1;
+
+        pcl::PointXYZRGB pt(255, 0, 0);
+        for (auto& point:map)
+        {
+          pt.x = point(0);
+          pt.y = point(1);
+          pt.z = point(2);
+          pointcloud->points.push_back(pt);
+        }
+
+        pointcloud->width = pointcloud->points.size();
+        pub_.publish(pointcloud);
+      }
+    }
+
+
+    ros::Publisher pub_;
+  private:
+    std::string parent_frame_id_;
+  };
+
 }
 
 
