@@ -109,7 +109,7 @@ namespace msckf_mono
     }
 
     std::vector<imuReading<float>> imu_since_prev_img;
-    imu_since_prev_img.reserve(10);
+    imu_since_prev_img.reserve(50);
 
     // get the first imu reading that belongs to the next image
     auto frame_end = std::find_if(imu_queue_.begin(), imu_queue_.end(),
@@ -121,7 +121,7 @@ namespace msckf_mono
 
     imu_queue_.erase(imu_queue_.begin(), frame_end);
 
-    for(auto& reading : imu_since_prev_img){
+    for(imuReading<float>& reading : imu_since_prev_img){
       msckf_.propagate(reading);
       publish_est();
 
@@ -225,13 +225,11 @@ namespace msckf_mono
 
   void RosInterface::publish_est()
   {
-     imuState<float> state = msckf_.getImuState();
-
-      Sophus::SE3f pose_I_G(state.q_IG, state.p_I_G);
-      geometry_msgs::Pose pose_I_G_ros = msckf::toRos(pose_I_G);
-
-      tf_pub_imu_.publish(pose_I_G_ros, parent_frame_id_, child_frame_id_);
-      path_pub_est_.publish(pose_I_G_ros, ros::Time::now());
+    imuState<float> state = msckf_.getImuState();
+    state.q_IG.normalize();
+    geometry_msgs::Pose pose_I_G_ros = msckf::toRos(state.p_I_G, state.q_IG);
+    tf_pub_imu_.publish(pose_I_G_ros, parent_frame_id_, child_frame_id_);
+    path_pub_est_.publish(pose_I_G_ros, ros::Time::now());
   }
 
   void RosInterface::publish_gt()
@@ -273,10 +271,24 @@ namespace msckf_mono
 
     init_imu_state_.b_g = gyro_mean;
     init_imu_state_.g << 0.0, 0.0, -9.81;
-    init_imu_state_.q_IG = Quaternion<float>::FromTwoVectors(
-        -init_imu_state_.g, accel_mean);
 
-    init_imu_state_.b_a = init_imu_state_.q_IG*init_imu_state_.g + accel_mean;
+    Eigen::Vector3f diff = accel_mean + init_imu_state_.g;
+    if (diff.norm() < 0.1) {
+      init_imu_state_.q_IG = Quaternionf(1,0,0,0);
+      init_imu_state_.b_a << 0.0, 0.0, 0.0;
+      init_imu_state_.b_g << 0.0, 0.0, 0.0;
+      std::cout << "imu_init: imu is gravity aligned..." << std::endl;
+      std::cout << "simulation detected, setting ground-truth values..." << std::endl;
+    }
+    else
+    {
+      init_imu_state_.q_IG = Quaternion<float>::FromTwoVectors(
+          -init_imu_state_.g, accel_mean);
+      init_imu_state_.b_a = init_imu_state_.q_IG*init_imu_state_.g + accel_mean;
+    }
+
+
+
     init_imu_state_.v_I_G.setZero();
     if(!last_pose_stamped_gt_.header.stamp.isZero())
     {
@@ -285,14 +297,12 @@ namespace msckf_mono
 
       geometry_msgs::Pose pose_I_G = last_pose_stamped_gt_.pose;
       init_imu_state_.p_I_G = msckf::toEigen(pose_I_G.position).cast <float> ();
-      //init_imu_state_.q_IG = msckf::toEigen(pose_I_G.orientation).cast <float> ();
+      init_imu_state_.q_IG = msckf::toEigen(pose_I_G.orientation).cast <float> ();
     }
     else
     {
       std::cout << "* using default init:" << std::endl;
       init_imu_state_.p_I_G.setZero();
-
-
     }
 
     init_imu_state_.p_I_G_null = init_imu_state_.p_I_G;
@@ -317,6 +327,8 @@ namespace msckf_mono
     track_handler_.reset( new corner_detector::TrackHandler(K_, dist_coeffs_, distortion_model_) );
     track_handler_->set_grid_size(n_grid_rows_, n_grid_cols_);
     track_handler_->set_ransac_threshold(ransac_threshold_);
+    track_handler_->set_detection_threshold(corner_treshold_);
+    track_handler_->set_tracker_max_dist(tracker_max_pixel_dist_);
   }
 
   void RosInterface::setup_msckf()
@@ -387,7 +399,7 @@ namespace msckf_mono
 
     float ransac_threshold_;
     nh_.param<float>("ransac_threshold_", ransac_threshold_, 0.000002);
-
+    nh_.param<float>("corner_treshold", corner_treshold_, 40.0);
     // MSCKF Parameters
     float feature_cov;
     nh_.param<float>("feature_covariance", feature_cov, 7);
@@ -455,14 +467,14 @@ namespace msckf_mono
     }
 
     float w_var, dbg_var, a_var, dba_var, q_var_init, bg_var_init, v_var_init, ba_var_init, p_var_init;
-    float feature_cov, n_grid_rows, n_grid_cols;
+    float feature_cov, n_grid_rows, n_grid_cols, corner_threshold, max_pixel_dist;
     float max_gn_cost_norm, translation_threshold, min_rcond, keyframe_transl_dist,
         keyframe_rot_dist, min_track_length, max_track_length, max_cam_states, ransac_threshold;
     float fx, fy, cx,cy, k1, k2, p1,p2;
     std::string distortion_model = "radtan";
     float stand_still_time;
-    Matrix3f R_I_C;
-    Vector3f p_I_C;
+    Matrix3f R_CI;
+    Vector3f p_C_I;
     cv::FileNode fn_;
     RTV_EXPECT_TRUE_(vision_core::config_helper::loadNode(fn_, fs, "NOISE"));
     {
@@ -472,21 +484,21 @@ namespace msckf_mono
       RTV_EXPECT_TRUE_(fn_["a_var"].isNamed());
       RTV_EXPECT_TRUE_(fn_["dba_var"].isNamed());
 
-      vision_core::config_helper::get_if(fn_, "w_var", w_var);
-      vision_core::config_helper::get_if(fn_, "dbg_var", dbg_var);
-      vision_core::config_helper::get_if(fn_, "a_var", a_var);
-      vision_core::config_helper::get_if(fn_, "dba_var", dba_var);
+      vision_core::config_helper::get(fn_, "w_var", w_var);
+      vision_core::config_helper::get(fn_, "dbg_var", dbg_var);
+      vision_core::config_helper::get(fn_, "a_var", a_var);
+      vision_core::config_helper::get(fn_, "dba_var", dba_var);
       // init
       RTV_EXPECT_TRUE_(fn_["q_var_init"].isNamed());
       RTV_EXPECT_TRUE_(fn_["bg_var_init"].isNamed());
       RTV_EXPECT_TRUE_(fn_["v_var_init"].isNamed());
       RTV_EXPECT_TRUE_(fn_["ba_var_init"].isNamed());
       RTV_EXPECT_TRUE_(fn_["p_var_init"].isNamed());
-      vision_core::config_helper::get_if(fn_, "q_var_init", q_var_init);
-      vision_core::config_helper::get_if(fn_, "bg_var_init", bg_var_init);
-      vision_core::config_helper::get_if(fn_, "v_var_init", v_var_init);
-      vision_core::config_helper::get_if(fn_, "ba_var_init", ba_var_init);
-      vision_core::config_helper::get_if(fn_, "p_var_init", p_var_init);
+      vision_core::config_helper::get(fn_, "q_var_init", q_var_init);
+      vision_core::config_helper::get(fn_, "bg_var_init", bg_var_init);
+      vision_core::config_helper::get(fn_, "v_var_init", v_var_init);
+      vision_core::config_helper::get(fn_, "ba_var_init", ba_var_init);
+      vision_core::config_helper::get(fn_, "p_var_init", p_var_init);
     }
     RTV_EXPECT_TRUE_(vision_core::config_helper::loadNode(fn_, fs, "TRACKER"));
     {
@@ -494,9 +506,13 @@ namespace msckf_mono
       RTV_EXPECT_TRUE_(fn_["feature_cov"].isNamed());
       RTV_EXPECT_TRUE_(fn_["n_grid_rows"].isNamed());
       RTV_EXPECT_TRUE_(fn_["n_grid_cols"].isNamed());
-      vision_core::config_helper::get_if(fn_, "feature_cov", feature_cov);
-      vision_core::config_helper::get_if(fn_, "n_grid_rows", n_grid_rows);
-      vision_core::config_helper::get_if(fn_, "n_grid_cols", n_grid_cols);
+      RTV_EXPECT_TRUE_(fn_["corner_threshold"].isNamed());
+      RTV_EXPECT_TRUE_(fn_["max_pixel_dist"].isNamed());
+      vision_core::config_helper::get(fn_, "feature_cov", feature_cov);
+      vision_core::config_helper::get(fn_, "n_grid_rows", n_grid_rows);
+      vision_core::config_helper::get(fn_, "n_grid_cols", n_grid_cols);
+      vision_core::config_helper::get(fn_, "corner_threshold", corner_threshold);
+      vision_core::config_helper::get(fn_, "max_pixel_dist", max_pixel_dist);
     }
     RTV_EXPECT_TRUE_(vision_core::config_helper::loadNode(fn_, fs, "INIT"));
     {
@@ -516,15 +532,15 @@ namespace msckf_mono
       RTV_EXPECT_TRUE_(fn_["max_cam_states"].isNamed());
       RTV_EXPECT_TRUE_(fn_["ransac_threshold"].isNamed());
 
-      vision_core::config_helper::get_if(fn_, "max_gn_cost_norm", max_gn_cost_norm);
-      vision_core::config_helper::get_if(fn_, "translation_threshold", translation_threshold);
-      vision_core::config_helper::get_if(fn_, "min_rcond", min_rcond);
-      vision_core::config_helper::get_if(fn_, "keyframe_transl_dist", keyframe_transl_dist);
-      vision_core::config_helper::get_if(fn_, "keyframe_rot_dist", keyframe_rot_dist);
-      vision_core::config_helper::get_if(fn_, "min_track_length", min_track_length);
-      vision_core::config_helper::get_if(fn_, "max_track_length", max_track_length);
-      vision_core::config_helper::get_if(fn_, "max_cam_states", max_cam_states);
-      vision_core::config_helper::get_if(fn_, "ransac_threshold", ransac_threshold);
+      vision_core::config_helper::get(fn_, "max_gn_cost_norm", max_gn_cost_norm);
+      vision_core::config_helper::get(fn_, "translation_threshold", translation_threshold);
+      vision_core::config_helper::get(fn_, "min_rcond", min_rcond);
+      vision_core::config_helper::get(fn_, "keyframe_transl_dist", keyframe_transl_dist);
+      vision_core::config_helper::get(fn_, "keyframe_rot_dist", keyframe_rot_dist);
+      vision_core::config_helper::get(fn_, "min_track_length", min_track_length);
+      vision_core::config_helper::get(fn_, "max_track_length", max_track_length);
+      vision_core::config_helper::get(fn_, "max_cam_states", max_cam_states);
+      vision_core::config_helper::get(fn_, "ransac_threshold", ransac_threshold);
 
     }
     RTV_EXPECT_TRUE_(vision_core::config_helper::loadNode(fn_, fs, "Camera"));
@@ -560,19 +576,19 @@ namespace msckf_mono
     }
     if(vision_core::config_helper::loadNode(fn_, fs, "Camera-IMU"))
     {
-      cv::Mat R_IC, p_IC;  // reads as: from CAMERA to IMU
+      cv::Mat R_ci, p_c_i;  // reads as: from CAMERA to IMU
       RTV_EXPECT_TRUE_(fn_["R_ci"].isNamed());
       RTV_EXPECT_TRUE_(fn_["p_ci"].isNamed());
-      fn_["R_ci"] >> R_IC;
-      fn_["p_ci"] >> p_IC;
-      cv::cv2eigen(R_IC, R_I_C);
-      cv::cv2eigen(p_IC, p_I_C);
+      fn_["R_ci"] >> R_ci;
+      fn_["p_ci"] >> p_c_i;
+      cv::cv2eigen(R_ci, R_CI);
+      cv::cv2eigen(p_c_i, p_C_I);
     }
 
-    set_CAMERA_params(fx, fy, cx,cy, k1, k2, p1, p2, distortion_model, R_I_C, p_I_C);
+    set_CAMERA_params(fx, fy, cx,cy, k1, k2, p1, p2, distortion_model, R_CI, p_C_I);
     set_NOISE_params(fx, fy, feature_cov, w_var, dbg_var, a_var, dba_var, q_var_init, bg_var_init, v_var_init, ba_var_init, p_var_init);
     set_MSCKF_params(fx, max_gn_cost_norm, translation_threshold, min_rcond, keyframe_transl_dist, keyframe_rot_dist, max_track_length, min_track_length, max_cam_states);
-    set_TRACKER_params(n_grid_rows, n_grid_cols, ransac_threshold);
+    set_TRACKER_params(n_grid_rows, n_grid_cols, ransac_threshold, corner_threshold, max_pixel_dist);
     set_INITIALIZATON_params(stand_still_time, CalibrationMethod::TimedStandStill);
     return true;
   }
@@ -603,7 +619,7 @@ namespace msckf_mono
 
   void RosInterface::set_cam_imu_extrinsics(const Matrix3f &R_CI, const Vector3f &p_CI)
   {
-    camera_.q_CI = Quaternion<float>(R_CI).inverse(); // q_CI reads as CAMERA in IMU (from IMU to CAMERA)
+    camera_.q_CI = R_CI; // q_CI reads as CAMERA in IMU (from IMU to CAMERA)
     camera_.p_C_I = p_CI;  // p_C_I reads as CAMERA in IMU (from IMU to CAMERA in IMU)
   }
 
@@ -682,11 +698,13 @@ namespace msckf_mono
     msckf_params_.max_cam_states = max_cam_states;
   }
 
-  void RosInterface::set_TRACKER_params(const float n_grid_rows, const float n_grid_cols, const float ransac_threshold)
+  void RosInterface::set_TRACKER_params(const float n_grid_rows, const float n_grid_cols, const float ransac_threshold, const float corner_treshold, const float max_pixel_dist)
   {
     n_grid_rows_ = n_grid_rows;
     n_grid_cols_ = n_grid_cols;
     ransac_threshold_ = ransac_threshold;
+    corner_treshold_ = corner_treshold;
+    tracker_max_pixel_dist_ = max_pixel_dist;
   }
 
   void RosInterface::set_INITIALIZATON_params(const float stand_still_time, const RosInterface::CalibrationMethod method)
@@ -697,18 +715,19 @@ namespace msckf_mono
 
   void RosInterface::dump_info()
   {
-    ROS_INFO_STREAM("-Intrinsics " << camera_.f_u << ", "
+    ROS_INFO_STREAM("-  Intrinsics: " << camera_.f_u << ", "
                                    << camera_.f_v << ", "
                                    << camera_.c_u << ", "
                                    << camera_.c_v );
-    ROS_INFO_STREAM("-Distortion " << dist_coeffs_.at<float>(0) << ", "
+    ROS_INFO_STREAM("-  Distortion: " << dist_coeffs_.at<float>(0) << ", "
                                    << dist_coeffs_.at<float>(1) << ", "
                                    << dist_coeffs_.at<float>(2) << ", "
                                    << dist_coeffs_.at<float>(3) );
 
-    ROS_INFO_STREAM("-q_CI \n" << camera_.q_CI.x() << "," << camera_.q_CI.y() << "," << camera_.q_CI.z() << "," << camera_.q_CI.w() << " (xyzw)");
-    ROS_INFO_STREAM("-p_C_I \n" << camera_.p_C_I.transpose());
-    ROS_INFO_STREAM(" stand still duration: " << stand_still_time_);
+    ROS_INFO_STREAM("-  q_CI: " << camera_.q_CI.x() << "," << camera_.q_CI.y() << "," << camera_.q_CI.z() << "," << camera_.q_CI.w() << " (xyzw)");
+    ROS_INFO_STREAM("-  p_C_I: " << camera_.p_C_I.transpose());
+    ROS_INFO_STREAM("-  stand still duration: " << stand_still_time_);
+    ROS_INFO_STREAM("-  Tracker config: " << n_grid_cols_ << "," << n_grid_rows_ << "," << ransac_threshold_ << "," <<  corner_treshold_);
   }
 
 }

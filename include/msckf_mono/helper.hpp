@@ -29,10 +29,10 @@ namespace msckf
     std::stringstream ss;
     ss << std::setprecision(std::numeric_limits < long
     double > ::digits10 + 1)
-    << p.header.stamp.toSec() << " " << std::setprecision(8) << "[sec]" << static_cast<float>(p.pose.position.x) << ","
+    << p.header.stamp.toSec() << " " << std::setprecision(8) << "[sec] - " << static_cast<float>(p.pose.position.x) << ","
         << static_cast<float>(p.pose.position.y) << "," << static_cast<float>(p.pose.position.z) << "(xyz)/"
         << static_cast<float>(p.pose.orientation.x) << "," << static_cast<float>(p.pose.orientation.y) << ","
-        << static_cast<float>(p.pose.orientation.z) << "," << static_cast<float>(p.pose.orientation.w) << "(xyxz)";
+        << static_cast<float>(p.pose.orientation.z) << "," << static_cast<float>(p.pose.orientation.w) << "(xyzw)";
     return ss.str();
   }
 
@@ -82,8 +82,8 @@ namespace msckf
   static geometry_msgs::Pose toRos(Eigen::Matrix<T, 3, 1> const& p, Eigen::Quaternion<T> const &q)
   {
     geometry_msgs::Pose pose_;
-    pose_.orientation = toRos(p);
-    pose_.position = toRos(q());
+    pose_.orientation = toRos(q);
+    pose_.position = toRos(p, 1);
     return pose_;
   }
 

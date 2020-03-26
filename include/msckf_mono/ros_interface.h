@@ -105,7 +105,9 @@ namespace msckf_mono
 
       void set_TRACKER_params(float const n_grid_rows = 8,
                               float const n_grid_cols = 8,
-                              float const ransac_threshold = 0.000002);
+                              float const ransac_threshold = 0.000002,
+                              const float corner_treshold = 40.0,
+                              const float max_pixel_dist = 25.0);
 
       void set_INITIALIZATON_params(float const stand_still_time,
                                      CalibrationMethod const method);
@@ -144,6 +146,8 @@ namespace msckf_mono
       int n_grid_cols_;
       int n_grid_rows_;
       float ransac_threshold_;
+      float corner_treshold_ = 20.0f;
+      float tracker_max_pixel_dist_ = 25.0f;
 
 
       CalibrationMethod imu_calibration_method_;

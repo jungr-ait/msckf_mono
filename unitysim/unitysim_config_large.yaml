@@ -14,32 +14,34 @@ NOISE:
   q_var_init: 1e-5
   bg_var_init: 1e-5
   v_var_init: 1e-2
-  ba_var_init: 1e-4
-  p_var_init: 1e-12
+  ba_var_init: 1e-5
+  p_var_init: 1e-5
 
 ################################################################################
 ## TRACKER parameters:  feature_cov = detection_threshold_
 TRACKER:
-  feature_cov: 50
-  n_grid_rows: 20
-  n_grid_cols: 20
+  feature_cov: 4
+  n_grid_rows: 14
+  n_grid_cols: 14
+  corner_threshold: 60.0
+  max_pixel_dist: 50.0
   
 ################################################################################
 ## INIT parameters:
 INIT:
-  stand_still_time: 1.9
+  stand_still_time: 1.95
 ################################################################################
 ## MSCKF parameters:
 MSCKF:
-  max_gn_cost_norm: 7
+  max_gn_cost_norm: 14
   translation_threshold: 0.1
   min_rcond: 3e-8
-  keyframe_transl_dist: 0.005
-  keyframe_rot_dist: 0.05
+  keyframe_transl_dist: 0.05
+  keyframe_rot_dist: 0.005
   min_track_length: 3
-  max_track_length: 100
-  max_cam_states: 30
-  ransac_threshold: 0.00000002
+  max_track_length: 300
+  max_cam_states: 20
+  ransac_threshold: 1e-6
 
 
 ################################################################################

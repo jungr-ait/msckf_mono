@@ -35,6 +35,11 @@ namespace vision_core {
     }
 
     template<typename T>
+    static inline void get(cv::FileNode const &fn, std::string const &name, T &dst)
+    {
+      dst = static_cast<T>(fn[name]);
+    }
+    template<typename T>
     static inline void get_if(cv::FileNode const &fn, std::string const &name, T &dst)
     {
       if(fn[name].isNamed())

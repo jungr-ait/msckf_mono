@@ -25,6 +25,8 @@ TRACKER:
   feature_cov: 2
   n_grid_rows: 10
   n_grid_cols: 10
+  corner_threshold: 40.0
+  max_pixel_dist: 25.0
   
 ################################################################################
 ## INIT parameters:
@@ -66,7 +68,7 @@ Camera-IMU:
     rows: 3
     cols: 3
     dt: d
-    data: [ 1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, -1.0 ]
+    data: [1, 0, 0, 0, 0, -1, 0, 0, 1  ]
   p_ci: !!opencv-matrix
     rows: 3
     cols: 1
