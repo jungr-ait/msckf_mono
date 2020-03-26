@@ -57,6 +57,7 @@ int main(int argc, char **argv)
   ros::init(argc, argv, app_name);
   ros::start();
 
+
   CLI::App app{app_name};
 
   std::string bag_filename = "./euroc/MH_03_medium.bag";
@@ -190,7 +191,7 @@ int main(int argc, char **argv)
           if(imu != nullptr &&  (m.getTopic() == topic_imu))
           {
             num_imu += 1;
-            if( num_cam % rate_reduction_imu == 0)
+            if( num_imu % rate_reduction_imu == 0)
             {
               node.imuCallback(imu);
             }

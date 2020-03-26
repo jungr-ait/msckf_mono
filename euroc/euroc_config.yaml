@@ -21,6 +21,8 @@ TRACKER:
   feature_cov: 2
   n_grid_rows: 10
   n_grid_cols: 10
+  corner_threshold: 40.0
+  max_pixel_dist: 25.0
   
 ################################################################################
 ## INIT parameters:
