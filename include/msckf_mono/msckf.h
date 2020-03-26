@@ -80,6 +80,7 @@ namespace msckf_mono {
         num_feature_tracks_residualized_ = 0;
         imu_state_ = imu_state;
         pos_init_ = imu_state_.p_I_G;
+        quat_init_ = imu_state_.q_IG;
         imu_state_.p_I_G_null = imu_state_.p_I_G;
         imu_state_.v_I_G_null = imu_state_.v_I_G;
         imu_state_.q_IG_null = imu_state_.q_IG;
@@ -1203,6 +1204,7 @@ namespace msckf_mono {
             Matrix<_S, 2, 3> J;
             Vector2<_S> r;
             _S w;
+            J.setZero();
 
             jacobian(cam_poses[i], solution, measurements[i], J, r, w);
 
@@ -1302,6 +1304,7 @@ namespace msckf_mono {
 
         // Compute the Jacobian.
         Matrix3<_S> W;
+        W.setZero();
         W.template leftCols<2>() = T_c0_ci.linear().template leftCols<2>();
         W.template rightCols<1>() = T_c0_ci.translation();
 

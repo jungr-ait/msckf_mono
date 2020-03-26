@@ -39,6 +39,7 @@ public:
   void detect_features(const cv::Mat& image, std::vector<cv::Point2f>& features);
   void set_grid_position(const cv::Point2f& pos);
   void set_grid_size(int n_rows, int n_cols);
+  void set_threshold(double const thr);
 
   int get_n_rows(){return grid_n_rows_;}
   int get_n_cols(){return grid_n_cols_;}
@@ -65,6 +66,8 @@ class CornerTracker
 
     ~CornerTracker() {};
 
+    void set_max_pixel_dist(double const max_dist);
+
     void configure(double window_size,
                    double min_eigen_threshold,
                    int max_level,
@@ -78,6 +81,7 @@ class CornerTracker
 
     double min_eigen_threshold_;
     int max_level_;
+    double max_pixel_dist_ = 25.0;
 
     cv::TermCriteria termination_criteria_;
 };
@@ -118,6 +122,8 @@ class TrackHandler
 
     void set_grid_size(int n_rows, int n_cols);
     void set_ransac_threshold(double rt);
+    void set_detection_threshold(double thr);
+    void set_tracker_max_dist(double const dist);
 
     cv::Mat get_track_image();
 

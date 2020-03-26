@@ -17,6 +17,13 @@ void CornerDetector::set_grid_size(int n_rows, int n_cols) {
   grid_n_rows_ = n_rows;
   grid_n_cols_ = n_cols;
   occupancy_grid_.resize(grid_n_rows_*grid_n_cols_, false);
+  std::cout << "CornerDetector::set_grid_size set" << n_rows << "," << n_cols << std::endl;
+}
+
+void CornerDetector::set_threshold(const double thr)
+{
+  detection_threshold_ = thr;
+  std::cout << "CornerDetector::detection_threshold_ set" << thr << std::endl;
 }
 
 int CornerDetector::sub2ind(const cv::Point2f& sub) {
@@ -145,6 +152,11 @@ CornerTracker::CornerTracker(int window_size,
 {
 }
 
+void CornerTracker::set_max_pixel_dist(const double max_dist)
+{
+  max_pixel_dist_ = max_dist;
+}
+
 void CornerTracker::configure(double window_size,
                               double min_eigen_threshold,
                               int max_level,
@@ -178,7 +190,7 @@ void CornerTracker::track_features(cv::Mat img_1, cv::Mat img_2, Point2fVector& 
     cv::Point2f pt = points2.at(i- indexCorrection);
     cv::Point2f dist_vector = points2.at(i-indexCorrection)-points1.at(i-indexCorrection);
     double dist = std::sqrt(dist_vector.x*dist_vector.x+dist_vector.y*dist_vector.y);
-    if(dist>25.0 || (status.at(i) == 0)||(pt.x<0)||(pt.y<0)||(pt.x>w)||(pt.y>h))	{
+    if(dist>max_pixel_dist_ || (status.at(i) == 0)||(pt.x<0)||(pt.y<0)||(pt.x>w)||(pt.y>h))	{
       if((pt.x<0)||(pt.y<0)||(pt.x>w)||(pt.y>h))
         status.at(i) = 0;
 
@@ -440,6 +452,16 @@ void TrackHandler::undistortPoints(Point2fVector& in, Point2fVector& out){
  
 void TrackHandler::set_ransac_threshold(double rt){
   ransac_threshold_ = rt;
+}
+
+void TrackHandler::set_detection_threshold(double thr)
+{
+  detector_.set_threshold(thr);
+}
+
+void TrackHandler::set_tracker_max_dist(const double dist)
+{
+  tracker_.set_max_pixel_dist(dist);
 }
 
 Eigen::Array<bool, 1, Eigen::Dynamic>
