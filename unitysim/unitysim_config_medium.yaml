@@ -13,12 +13,11 @@ NOISE:
   a_var: 1.86e-3
   dba_var: 4.33e-4
   # INIT parameters:
-  q_var_init: 1e-5
+  q_var_init: 1e-3
   bg_var_init: 1e-5
   v_var_init: 1e-2
-  ba_var_init: 1e-4
-  p_var_init: 1e-12
-
+  ba_var_init: 1e-5
+  p_var_init: 1e-3
 ################################################################################
 ## TRACKER parameters:
 TRACKER:
@@ -31,7 +30,7 @@ TRACKER:
 ################################################################################
 ## INIT parameters:
 INIT:
-  stand_still_time: 1.9
+  stand_still_time: 1.95
 ################################################################################
 ## MSCKF parameters:
 MSCKF:
@@ -41,7 +40,7 @@ MSCKF:
   keyframe_transl_dist: 0.05
   keyframe_rot_dist: 0.05
   min_track_length: 3
-  max_track_length: 500
+  max_track_length: 50
   max_cam_states: 30
   ransac_threshold: 0.000002
 
@@ -68,7 +67,7 @@ Camera-IMU:
     rows: 3
     cols: 3
     dt: d
-    data: [1, 0, 0, 0, 0, -1, 0, 0, 1  ]
+    data: [ 1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, -1.0 ]
   p_ci: !!opencv-matrix
     rows: 3
     cols: 1
