@@ -21,10 +21,10 @@ NOISE:
 ## TRACKER parameters:  feature_cov = detection_threshold_
 TRACKER:
   feature_cov: 4
-  n_grid_rows: 14
-  n_grid_cols: 14
-  corner_threshold: 60.0
-  max_pixel_dist: 50.0
+  n_grid_rows: 16
+  n_grid_cols: 12
+  corner_threshold: 40.0
+  max_pixel_dist: 60.0
   
 ################################################################################
 ## INIT parameters:

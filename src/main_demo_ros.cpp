@@ -48,7 +48,9 @@ void test_quat_2_rot_conversion()
 }
 
 
-
+// small: --topic_imu /mus/imu --topic_camera /mus/image --topic_gt_pose /mus/ground_truth_pose_imu --rate_reduction_imu 5 --rate_reduction_cam 10 -b /home/jungr/workspace/datasets/MCS_Run_15_Resolutions/small.bag -c /home/jungr/workspace/NAV/development/catkin_workspaces/msckf_mono_cws/src/msckf_mono/unitysim/unitysim_config_small.yaml --process_N_cam_imgs 500
+// medium: --topic_imu /mus/imu --topic_camera /mus/image --topic_gt_pose /mus/ground_truth_pose_imu --rate_reduction_imu 5 --rate_reduction_cam 10 -b /home/jungr/workspace/datasets/MCS_Run_15_Resolutions/medium.bag -c /home/jungr/workspace/NAV/development/catkin_workspaces/msckf_mono_cws/src/msckf_mono/unitysim/unitysim_config_medium.yaml --process_N_cam_imgs 500
+// large: --topic_imu /mus/imu --topic_camera /mus/image --topic_gt_pose /mus/ground_truth_pose_imu --rate_reduction_imu 5 --rate_reduction_cam 10 -b /home/jungr/workspace/datasets/MCS_Run_15_Resolutions/large.bag -c /home/jungr/workspace/NAV/development/catkin_workspaces/msckf_mono_cws/src/msckf_mono/unitysim/unitysim_config_large.yaml --process_N_cam_imgs 500
 int main(int argc, char **argv)
 {
   test_quat_2_rot_conversion();
@@ -90,6 +92,9 @@ int main(int argc, char **argv)
   app.add_option("--rate_reduction_imu", rate_reduction_imu, "reduction factor for imu");
   int rate_reduction_cam = 1;
   app.add_option("--rate_reduction_cam", rate_reduction_cam, "reduction factor for cam");
+
+  int process_N_cam_imgs = 0;
+  app.add_option("--process_N_cam_imgs", process_N_cam_imgs, "process just N camera images and then terminate (for profiling)");
 
   CLI11_PARSE(app, argc, argv);
 
@@ -152,7 +157,7 @@ int main(int argc, char **argv)
 
 
 
-      unsigned num_imu = 0, num_cam = 0, num_pose = 0, num_pos = 0;
+      unsigned num_imu = 0, num_imu_processed = 0, num_cam = 0, num_cam_processed = 0, num_pose = 0, num_pos = 0;
 
       for(rosbag::MessageInstance const& m : view)
       {
@@ -171,7 +176,7 @@ int main(int argc, char **argv)
                     << ", relative: " << std::setprecision(5) << t_current_sec - t_start_sec << " [sec]" << std::endl;
         }
 
-         if(t_current_sec  > t_start_sec && t_current_sec < t_stop_sec)
+        if(t_current_sec  > t_start_sec && t_current_sec < t_stop_sec)
         {
 
           if(!ros::ok() || shutdown)
@@ -185,6 +190,7 @@ int main(int argc, char **argv)
             if( num_cam % rate_reduction_cam == 0)
             {
               node.imageCallback(image);
+              num_cam_processed += 1;
             }
           }
 
@@ -194,6 +200,7 @@ int main(int argc, char **argv)
             if( num_imu % rate_reduction_imu == 0)
             {
               node.imuCallback(imu);
+              num_imu_processed += 1;
             }
           }
 
@@ -213,6 +220,12 @@ int main(int argc, char **argv)
         }
 
         processed_cnt++;
+
+        if(process_N_cam_imgs > 0 && num_cam_processed >= process_N_cam_imgs)
+        {
+          std::cout << "abort loop - threshold for processing camera images reached!" << std::endl;
+          break;
+        }
       }
 
       num_run++;
