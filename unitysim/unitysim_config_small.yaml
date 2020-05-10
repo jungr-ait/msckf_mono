@@ -24,7 +24,7 @@ TRACKER:
   feature_cov: 2
   n_grid_rows: 8
   n_grid_cols: 8
-  corner_threshold: 80.0
+  corner_threshold: 90.0
   max_pixel_dist: 12.0
   
 ################################################################################

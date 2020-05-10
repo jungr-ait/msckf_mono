@@ -145,7 +145,7 @@ namespace msckf_mono
     msckf_.update(cur_features, cur_ids);
     msckf_.addFeatures(new_features, new_ids);
     msckf_.marginalize();
-    // msckf_.pruneRedundantStates();
+    msckf_.pruneRedundantStates();
     msckf_.pruneEmptyStates();
 
     publish_core(msg->header.stamp);
@@ -371,9 +371,9 @@ namespace msckf_mono
     XmlRpc::XmlRpcValue ros_param_list;
     nh_.getParam(kalibr_camera+"/T_cam_imu", ros_param_list);
     ROS_ASSERT(ros_param_list.getType() == XmlRpc::XmlRpcValue::TypeArray);
-    
+
     Matrix4<float> T_cam_imu;
-    for (int32_t i = 0; i < ros_param_list.size(); ++i) 
+    for (int32_t i = 0; i < ros_param_list.size(); ++i)
     {
       ROS_ASSERT(ros_param_list[i].getType() == XmlRpc::XmlRpcValue::TypeArray);
       for(int32_t j=0; j<ros_param_list[i].size(); ++j){
