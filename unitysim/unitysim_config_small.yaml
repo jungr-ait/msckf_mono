@@ -40,8 +40,8 @@ MSCKF:
   keyframe_transl_dist: 0.05
   keyframe_rot_dist: 0.05
   min_track_length: 3
-  max_track_length: 50
-  max_cam_states: 30
+  max_track_length: 20
+  max_cam_states: 20
   ransac_threshold: 0.000002
 
 
