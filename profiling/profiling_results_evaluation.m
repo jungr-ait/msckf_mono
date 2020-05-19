@@ -1,0 +1,73 @@
+function profiling_results_evaluation()
+  close all
+  
+  % profiling results of: msckf_mono/profiling/profile_unitysim.sh
+  
+  feature_size_bytes = 12;
+  x_feat = [8*6, 12*9, 16*12]';
+  x_res = [320*240, 640*480, 1280*960]';
+  y_msckf_marginalize = [8960451, 18355433, 31793300]'; 
+  y_msckf_augment = [3759840, 3761001, 3763214]';
+  y_msckf_prune_empty = [121544, 121476, 121301]';
+  y_msckf_prunce_redunant = [5710, 7229, 9610]';
+  y_msckf_propagate = [146618, 146623, 146615]'; % needs to be scaled by 10 due to the IMU/CAM rate!
+  y_msckf_update = [137089, 425671, 1007316]';
+  y_tracker_trackfeat = [2827448, 8914060, 29230102]';  
+  y_tracker_newfeat = [2790823, 17108755, 83104246 ]';
+  y_tacker_setimg = [4776, 14463, 36600]'; 
+  y_cv_copy_img = [22680, 53221, 148737]';
+  
+  
+  
+  y_msckf = y_msckf_marginalize + y_msckf_augment + y_msckf_prune_empty + y_msckf_prunce_redunant +  y_msckf_update
+  y_tracker = y_tracker_trackfeat + y_tracker_newfeat + y_tacker_setimg + y_cv_copy_img
+  
+  y_img = y_msckf + y_tracker
+  
+  figure('Name', 'MSCKF - back-end')
+
+  subplot(2,1,1);
+  f_msckf = fit(x_feat,y_msckf,'poly2');
+  plot(f_msckf,x_feat,y_msckf); grid on;
+  xlabel('num features');
+  ylabel('cycle count');
+  legend('Location','northwest');
+  
+  subplot(2,1,2);
+  f_msckf = fit(x_res,y_msckf,'poly2');
+  plot(f_msckf,x_res,y_msckf); grid on;
+  xlabel('num pixels');
+  ylabel('cycle count');
+  legend('Location','northwest');
+  
+  figure('Name', 'Tracker - front-end');
+  subplot(2,1,1);
+  f_tracker = fit(x_feat,y_tracker,'poly2');
+  plot(f_tracker,x_feat,y_tracker); grid on;
+  xlabel('num features');
+  ylabel('cycle count')
+  legend('Location','northwest');
+  
+  subplot(2,1,2);
+  f_tracker = fit(x_res,y_tracker,'poly2');
+  plot(f_tracker,x_res,y_tracker); grid on;
+  xlabel('num pixels');
+  ylabel('cycle count')
+  legend('Location','northwest');
+  
+  figure('Name', 'Camera correction');
+  subplot(2,1,1);
+  f = fit(x_feat,y_img,'poly2');
+  plot(f,x_feat,y_img); grid on;
+  xlabel('num features');
+  ylabel('cycle count')
+  legend('Location','northwest');
+  
+  subplot(2,1,2);
+  f = fit(x_res,y_img,'poly2');
+  plot(f,x_res,y_img); grid on;
+  xlabel('num pixels');
+  ylabel('cycle count');
+  legend('Location','northwest');
+  
+end

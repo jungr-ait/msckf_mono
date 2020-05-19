@@ -56,3 +56,10 @@ We have run this on platforms ranging from the odroid to a modern laptop, so hop
 - ROS Nodelet
 - Remove OpenCV from opening YAML files
 - PennCOSYVIO Dataset support
+
+# MSCKF-executable
+```
+cd /home/jungr/workspace/NAV/development/catkin_workspaces/msckf_mono_cws/src/msckf_mono
+executeable: catkin_workspaces/msckf_mono_cws/build-msckf_mono-Reldbg/devel/lib/msckf_mono/msckf_demo_ros
+--topic_imu /mus/imu --topic_camera /mus/image --topic_gt_pose /mus/ground_truth_pose_imu --rate_reduction_imu 10 --rate_reduction_cam 10 -b /home/jungr/workspace/datasets/MCS_Run_15_Resolutions/small.bag -c /home/jungr/workspace/NAV/development/catkin_workspaces/msckf_mono_cws/src/msckf_mono/unitysim/unitysim_config_small.yaml
+```
