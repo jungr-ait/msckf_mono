@@ -24,12 +24,27 @@ function profiling_results_evaluation()
   
   y_img = y_msckf + y_tracker
   
+  %% EXTRAPOLATE: features of resolution
+  figure('Name', 'features over resolution');
+  f_feat = fit(x_res,x_feat, 'linearinterp');
+  new_res =  1280*960*4
+  new_feat = 320; %f_feat(new_res)
+  plot(f_feat,x_res,x_feat); grid on;
+  hold on;
+  stem([x_res; new_res], [x_feat; new_feat], 'g')
+  xlabel('num pixels');
+  ylabel('num features');
+  legend('Location','northwest');
+  
+  %% BACK-END
   figure('Name', 'MSCKF - back-end')
-
   subplot(2,1,1);
   f_msckf = fit(x_feat,y_msckf,'poly2');
+  new_backend = f_msckf(new_feat)
   plot(f_msckf,x_feat,y_msckf); grid on;
-  xlabel('num features');
+  hold on;
+  stem([x_feat; new_feat], [y_msckf; new_backend], 'g')
+  xlabel('');
   ylabel('cycle count');
   legend('Location','northwest');
   
@@ -40,6 +55,7 @@ function profiling_results_evaluation()
   ylabel('cycle count');
   legend('Location','northwest');
   
+  %% FRONT-END
   figure('Name', 'Tracker - front-end');
   subplot(2,1,1);
   f_tracker = fit(x_feat,y_tracker,'poly2');
@@ -50,12 +66,15 @@ function profiling_results_evaluation()
   
   subplot(2,1,2);
   f_tracker = fit(x_res,y_tracker,'poly2');
+  new_frontend = f_tracker(new_res)
   plot(f_tracker,x_res,y_tracker); grid on;
+  hold on;
+  stem([x_res; new_res], [y_tracker; new_frontend], 'g')
   xlabel('num pixels');
   ylabel('cycle count')
   legend('Location','northwest');
   
-  figure('Name', 'Camera correction');
+  figure('Name', 'front- and back-end');
   subplot(2,1,1);
   f = fit(x_feat,y_img,'poly2');
   plot(f,x_feat,y_img); grid on;
@@ -69,5 +88,7 @@ function profiling_results_evaluation()
   xlabel('num pixels');
   ylabel('cycle count');
   legend('Location','northwest');
+  
+  new_total = new_frontend + new_backend
   
 end
