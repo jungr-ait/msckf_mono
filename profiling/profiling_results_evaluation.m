@@ -1,3 +1,9 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% created: March 2020
+% version: 1.0.0
+% authors: 
+% * Roland Jung (roland.jung@aau.at)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function profiling_results_evaluation()
   close all
   
@@ -28,7 +34,7 @@ function profiling_results_evaluation()
   figure('Name', 'features over resolution');
   f_feat = fit(x_res,x_feat, 'linearinterp');
   new_res =  1280*960*4
-  new_feat = 320; %f_feat(new_res)
+  new_feat = 320; % too few datapoint for: f_feat(new_res)
   plot(f_feat,x_res,x_feat); grid on;
   hold on;
   stem([x_res; new_res], [x_feat; new_feat], 'g')
