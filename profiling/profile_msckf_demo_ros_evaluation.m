@@ -4,10 +4,10 @@
 % authors: 
 % * Roland Jung (roland.jung@aau.at)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function profiling_results_evaluation()
+function profile_msckf_demo_ros_evaluation()
   close all
   
-  % profiling results of: msckf_mono/profiling/profile_unitysim.sh
+  % profiling results of: msckf_mono/profiling/profile_msckf_demo_ros.sh
   
   feature_size_bytes = 12;
   x_feat = [8*6, 12*9, 16*12]';

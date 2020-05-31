@@ -1,9 +1,52 @@
-# msckf_mono
+# msckf_mono - Profiling
 Monocular MSCKF with ROS Support
 
 # Requirements
 - ROS Kinetic with Boost, OpenCV and Eigen
 - https://github.com/uzh-rpg/fast build and install according to their instructions
+
+# PROFILING
+
+`main_demo_ros` allows a synchronous message by message processing of bag files and the parametrization of the
+`ros_interface` via YAML file. This standalone executable supports various input arguments:
+```
+Usage: ./msckf_demo_ros [OPTIONS]
+
+Options:
+  -h,--help                   Print this help message and exit
+  -b,--bagfile TEXT           bag file name to be processed
+  --topic_imu TEXT            topic name
+  --topic_camera TEXT         topic name
+  --topic_gt_position TEXT    topic name
+  --topic_gt_pose TEXT        topic name
+  --start_sec FLOAT           start time
+  --stop_sec FLOAT            stop time
+  --num_loops INT             number of loops processed
+  --rate_Hz INT               processing rate
+  -c,--config_filename TEXT   configuration file
+  --rate_reduction_imu INT    reduction factor for imu
+  --rate_reduction_cam INT    reduction factor for cam
+```     
+to simplify the profiling.
+
+In the following a instruction to profile the algorithm using the synthetic dataset is given.
+
+
+## AAU VIO Unity Dataset -- ROS Bag
+
+To profile the algorithm with different camera resolution and different sensor rates the `AAU VIO dataset`
+can be used, which can be downloaded [here](TODO)
+
+In the folder `msckf_mono/profiling` a script is provided to profile the `MSCKF_mono` with [valgrind](valgrind.org) tool set using the first 500 camera images at a rate of 10 Hz and the IMU at a rate of 10 Hz (refer to the reduction rates).
+
+Run the scripts with the binary and the root directory of the dataset.
+```
+msckf_mono/profiling$ profile_msckf_demo_ros.sh <main_demo_ros binary> <root of dataset>
+```
+
+**HINT:** the MSCKF_mono might fail at some runs and completely diverge. In general, the algorithm does not provide reproducible results, e.g. due to RANSAC-based optimization. Therefore be patient and simply rerun the evaluation ;)  
+
+
 
 # Euroc Dataset -- ROS Bag
 Download MH_03_medium.bag from into the euroc folder in this repository.
@@ -56,10 +99,3 @@ We have run this on platforms ranging from the odroid to a modern laptop, so hop
 - ROS Nodelet
 - Remove OpenCV from opening YAML files
 - PennCOSYVIO Dataset support
-
-# MSCKF-executable
-```
-cd /home/jungr/workspace/NAV/development/catkin_workspaces/msckf_mono_cws/src/msckf_mono
-executeable: catkin_workspaces/msckf_mono_cws/build-msckf_mono-Reldbg/devel/lib/msckf_mono/msckf_demo_ros
---topic_imu /mus/imu --topic_camera /mus/image --topic_gt_pose /mus/ground_truth_pose_imu --rate_reduction_imu 10 --rate_reduction_cam 10 -b /home/jungr/workspace/datasets/MCS_Run_15_Resolutions/small.bag -c /home/jungr/workspace/NAV/development/catkin_workspaces/msckf_mono_cws/src/msckf_mono/unitysim/unitysim_config_small.yaml
-```
