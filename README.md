@@ -47,6 +47,22 @@ msckf_mono/profiling$ profile_msckf_demo_ros.sh <main_demo_ros binary> <root of 
 **HINT:** the MSCKF_mono might fail at some runs and completely diverge. In general, the algorithm does not provide reproducible results, e.g. due to RANSAC-based optimization. Therefore be patient and simply rerun the evaluation ;)  
 
 
+## Publications
+
+The profiling results are used in
+-  [To Offload or Not to Offload: Edge Computing in 5G for Drone Navigation](TODO) by `Hayat et al.`
+
+
+## Different resolutions
+
+Small: `320x240`
+![AAU_VIO_small](./doc/AAU_VIO_small.png)
+Medium: `640x480`
+![AAU_VIO_medium](./doc/AAU_VIO_medium.png)
+Large: `1280x960`
+![AAU_VIO_large](./doc/AAU_VIO_large.png)
+
+
 
 # Euroc Dataset -- ROS Bag
 Download MH_03_medium.bag from into the euroc folder in this repository.
