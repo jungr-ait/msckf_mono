@@ -32,10 +32,10 @@ to simplify the profiling.
 In the following a instruction to profile the algorithm using the synthetic dataset is given.
 
 
-## AAU VIO Unity Dataset -- ROS Bag
+## AAU synthetic ROS dataset for VIO -- ROS Bag
 
-To profile the algorithm with different camera resolution and different sensor rates the `AAU VIO dataset`
-can be used, which can be downloaded [here](TODO)
+To profile the algorithm with different camera resolution and different sensor rates the `AAU synthetic ROS dataset for VIO`
+can be used, which can be downloaded [here on Zenodo](https://zenodo.org/record/3870851)
 
 In the folder `msckf_mono/profiling` a script is provided to profile the `MSCKF_mono` with [valgrind](valgrind.org) tool set using the first 500 camera images at a rate of 10 Hz and the IMU at a rate of 10 Hz (refer to the reduction rates).
 
@@ -44,7 +44,7 @@ Run the scripts with the binary and the root directory of the dataset.
 msckf_mono/profiling$ profile_msckf_demo_ros.sh <main_demo_ros binary> <root of dataset>
 ```
 
-**HINT:** the MSCKF_mono might fail at some runs and completely diverge. In general, the algorithm does not provide reproducible results, e.g. due to RANSAC-based optimization. Therefore be patient and simply rerun the evaluation ;)  
+**HINT:** the MSCKF_mono might fail at some runs and completely diverge. In general, the algorithm does not provide reproducible results, e.g. due to RANSAC-based optimization. Therefore be patient and simply rerun the evaluation ;-)  
 
 
 ## Publications
