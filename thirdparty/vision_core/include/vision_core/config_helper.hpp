@@ -3,8 +3,6 @@
 * PURPOSE:      %{Cpp:License:ClassName}
 * AUTHOR:       jungr - Roland Jung
 * VERSION:      v1.0.0
-* CREATION:     9.10.2017
-*
 ******************************************************************************/
 #ifndef CONFIG_HELPER_HPP
 #define CONFIG_HELPER_HPP

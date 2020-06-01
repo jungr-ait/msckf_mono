@@ -3,8 +3,6 @@
 * PURPOSE:      %{Cpp:License:ClassName}
 * AUTHOR:       jungr - Roland Jung
 * VERSION:      v1.0.0
-* CREATION:     29.9.2017
-*
 ******************************************************************************/
 #ifndef VISION_CORE_TYPES_HPP
 #define VISION_CORE_TYPES_HPP

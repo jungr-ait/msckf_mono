@@ -3,9 +3,7 @@
 * PURPOSE:      Rate
 * AUTHOR:       jungr - Roland Jung
 * VERSION:      v1.0.0
-* CREATION:     3.7.2017
-*
-******************************************************************************/
+******************************************************************************//
 #ifndef UTILS_RATE_HPP
 #define UTILS_RATE_HPP
 #include <thread>
