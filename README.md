@@ -61,8 +61,8 @@ In the following a instruction to profile the algorithm using the synthetic data
 
 ## Profiling on the AAU synthetic ROS dataset for VIO
 
-To profile the algorithm with different camera resolution and different sensor rates the `AAU synthetic ROS dataset for VIO`
-can be used, which can be downloaded [here on Zenodo](https://zenodo.org/record/3870851)
+To profile the algorithm with different camera resolution and different sensor rates the `AAU synthetic ROS dataset for VIO` by Jung et al.
+can be used and downloaded [here on Zenodo](https://zenodo.org/record/3870851)
 
 In the folder `msckf_mono/profiling` a script is provided to profile the `MSCKF_mono` with [valgrind](valgrind.org) tool set using the first 1000 camera images at a rate of 10 Hz and the IMU at a rate of 100 Hz (refer to the reduction rates).
 
