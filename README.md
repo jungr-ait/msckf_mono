@@ -153,6 +153,8 @@ In the folder `msckf_mono/profiling` a script is provided to profile the `MSCKF_
 1. Group into image front- and back-end calls to obtain the average `cycles per call` (CPC):
    - Image front-end includes feature extraction and feature tracking tasks: `corner_detector::TrackerHandler::tracked_features`, `corner_detector::TrackerHandler::new_features`
    - Image back-end include the estimator update state by marginalizing outdated features: `msckf_mono::MSCKF::marginalize` 
+   
+   From the previous call graph, one can see that for instance  marginalizing states took 15228990779 cycles being called 479 times. This means, that on average one call took 31.79e6 instruction fetches (CPCs) for the *large* resolution (1280x960). 
  
     
 **HINT:** the MSCKF_mono might fail at some runs and completely diverge. In general, the algorithm does not provide reproducible results (it is non-deterministic), e.g. due to RANSAC-based optimization. Therefore be patient and simply rerun the evaluation ;-)  
