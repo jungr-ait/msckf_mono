@@ -61,10 +61,10 @@ In the following a instruction to profile the algorithm using the synthetic data
 
 ## Profiling on the AAU synthetic ROS dataset for VIO
 
-To profile the algorithm with different camera resolution and different sensor rates the `AAU synthetic ROS dataset for VIO` by Jung et al.
-can be used and downloaded [here on Zenodo](https://zenodo.org/record/3870851)
+To profile the algorithm with different camera resolution and different sensor rates the `AAU synthetic ROS dataset for VIO by Jung et al.`
+can be used and downloaded from [Zenodo](https://zenodo.org/record/3870851).
 
-In the folder `msckf_mono/profiling` a script is provided to profile the `MSCKF_mono` with [valgrind](valgrind.org) tool set using the first 1000 camera images at a rate of 10 Hz and the IMU at a rate of 100 Hz (refer to the reduction rates).
+In the folder `msckf_mono/profiling` a script is provided to profile the `MSCKF_mono` with the [valgrind](valgrind.org) tool-set using the first 1000 camera images at a rate of 10 Hz and the IMU at a rate of 100 Hz (refer to the reduction rates).
 
 1. Run the `roscore` in a terminal
     ```
@@ -148,17 +148,14 @@ In the folder `msckf_mono/profiling` a script is provided to profile the `MSCKF_
     ```commandline
     $ kcachegrind <>/profiling_ws/src/msckf_mono/profiling/callgrind.main_demo_ros.large.N_500.2115
     ```
-    Click in the GUI on `Call Graph` and this call graph should appear
+    Click in the GUI on `Call Graph` and the following call graph should appear
     ![callgraph](./doc/callgraph_main_demo_ros_large_500_2115.png)
-1. group into image front- and back-end calls to gather the average `cycles per call` (CPC) :
-   - image front-end includes feature extraction, feature tracking and IMU state propagation tasks: `corner_detector::TrackerHandler::tracked_features`, `corner_detector::TrackerHandler::new_features`
-   - image back-end include the estimator update state by marginalizing outdated features: `msckf_mono::MSCKF::marginalize` 
+1. Group into image front- and back-end calls to obtain the average `cycles per call` (CPC):
+   - Image front-end includes feature extraction and feature tracking tasks: `corner_detector::TrackerHandler::tracked_features`, `corner_detector::TrackerHandler::new_features`
+   - Image back-end include the estimator update state by marginalizing outdated features: `msckf_mono::MSCKF::marginalize` 
  
     
-    
-**HINT:** the MSCKF_mono might fail at some runs and completely diverge. In general, the algorithm does not provide reproducible results, e.g. due to RANSAC-based optimization. Therefore be patient and simply rerun the evaluation ;-)  
-
-
+**HINT:** the MSCKF_mono might fail at some runs and completely diverge. In general, the algorithm does not provide reproducible results (it is non-deterministic), e.g. due to RANSAC-based optimization. Therefore be patient and simply rerun the evaluation ;-)  
 
 
 ### Different resolutions
